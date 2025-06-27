@@ -17,7 +17,7 @@ const allowedOrigins = [
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin:'*',
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -29,7 +29,7 @@ app.use((req, res, next) => {
 });
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: '*',
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],
