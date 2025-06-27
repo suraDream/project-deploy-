@@ -14,6 +14,7 @@ const server = http.createServer(app);
 const allowedOrigins = [
   "http://localhost:3000",
   "https://project-deploy-pink.vercel.app",
+  "project-deploy-pink.vercel.app",
   "https://sport-hub-70.vercel.app",
 ];
 
