@@ -43,6 +43,7 @@ export default function BookingDetail() {
   const [reviewData, setReviewData] = useState([]);
 
   const [fieldId, setFieldId] = useState("");
+  const [qrCode, setQrCode] = useState(null);
   useEffect(() => {
     if (isLoading || !booking_id) return;
 
@@ -588,16 +589,18 @@ export default function BookingDetail() {
   console.log("reviewData", reviewData);
 
   const handleGenQR = async (booking_id, amount) => {
-    res = await fetch(`${API_URL}/booking/gen-qr`, {
+  const res = await fetch(`${API_URL}/booking/gen-qr`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ booking_id, amount }),
+      body: JSON.stringify({ 'bookingId':booking_id, 'amount':amount }),
 
   })
     const data = await res.json();
-    if (data.success) { 
-      const qrBase64 = data.qrCodeUrl;
-      const qrWindow = window.open("", "_blank");
+    if (data.status === true) { 
+     setQrCode(data.qrCode);
+     console.log("QR Code generated:", data.qr);
+      setMessage("สร้าง QR Code สำเร็จ");
+      setMessageType("success");
     } else {
       setMessage("เกิดข้อผิดพลาด: " + data.message);
       setMessageType("error");
@@ -792,6 +795,9 @@ export default function BookingDetail() {
                                 />
                                 อัปโหลดสลิปยอดทั้งหมด
                               </label>
+                              <p></p>
+                              <button onClick={()=>handleGenQR(booking_id,booking.total_remaining)}>สร้างQR code </button>
+                          {qrCode && <img src={qrCode} alt="QR Code" className="qr-code" />}
                               {imgPreviewTotal && (
                                 <div className="preview-container-order-detail">
                                   <img
@@ -816,6 +822,9 @@ export default function BookingDetail() {
                           <p className="no-slip-message">
                             ยังไม่ได้อัปโหลดสลิปมัดจำ
                           </p>
+                         
+                         
+  
                           <p>จ่ายมัดจำ</p>
                           <label className="file-label-order-detail">
                             <input
@@ -826,6 +835,8 @@ export default function BookingDetail() {
                             />
                             อัปโหลดสลิปมัดจำ
                           </label>
+                          <button onClick={()=>handleGenQR(booking_id,booking.price_deposit)}>สร้างQR code จ่ายมัดจำ</button>
+                          {qrCode && <img src={qrCode} alt="QR Code" className="qr-code" />}
                           {imgPreviewDeposit && (
                             <div className="preview-container-order-detail">
                               <img
@@ -874,6 +885,7 @@ export default function BookingDetail() {
                           />
                           อัปโหลดสลิปยอดทั้งหมด
                         </label>
+                       
                         {imgPreviewTotal && (
                           <div className="preview-container-order-detail">
                             <img

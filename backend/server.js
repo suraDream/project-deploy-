@@ -12,12 +12,12 @@ app.set("trust proxy", 1);
 const server = http.createServer(app);
 
 const allowedOrigins = [
-  "*",
+  "http://localhost:3000",
 ];
 
 const io = new Server(server, {
   cors: {
-    origin:'*',
+    origin:allowedOrigins,
     methods: ["GET", "POST"],
     credentials: true,
   },
@@ -29,7 +29,7 @@ app.use((req, res, next) => {
 });
 app.use(
   cors({
-    origin: '*',
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization", "Cookie"],

@@ -1387,11 +1387,19 @@ router.delete(
   );
 
   router.post("/gen-qr",async(req,res)=>{
-  const {bookingId,amount,fieldId} = req.body;
-  if (!bookingId || !amount|| !fieldId) {
+  const {bookingId,amount} = req.body;
+  if (!bookingId || !amount) {
     return res.status(400).json({ success: false, message: "Missing bookingId or amount" });
   }
   try {
+   const fieldIdResult = await pool.query(`SELECT field_id FROM bookings WHERE booking_id = $1`, [bookingId]);
+
+if (fieldIdResult.rowCount === 0) {
+  return res.status(404).json({ success: false, message: "Booking not found" });
+}
+
+const fieldId = fieldIdResult.rows[0].field_id;
+
     const fieldData = await pool.query(`SELECT number_bank FROM field WHERE field_id = $1`, [fieldId]);
     if (fieldData.rowCount === 0) {
       return res.status(404).json({ success: false, message: "Field not found" });
@@ -1403,32 +1411,30 @@ router.delete(
       return res.status(400).json({ success: false, message: "Missing bank number" });
     }
 
-    const qrCodeData = generatePayload(number_bank, {
-      amount: Number(amount),
-    });
-
-const qrBase64 = await qrcode.toDataURL(qrCodeData);
-
-
-const uploadRes = await cloudinary.uploader.upload(qrBase64, {
-  folder: "qr_codes",
-  public_id: `qr_${bookingId}_${Date.now()}`,
-  overwrite: true,
-  resource_type: "image",
+     const qrCodeData = promptpay(number_bank, {
+    amount: Number(amount),
 });
-const qrCode = uploadRes.secure_url;
+
+
+
+const qr = await qrcode.toDataURL(qrCodeData);
+console.log("QR Code generated:", qr);
+
+  // Optional: Save QR code to database or perform other actions here
+
+  // Respond with the QR code
+
 
 res.status(200).json({
-  success: true,
-  message: "QR code generated successfully",
-  qrCodeUrl: qrCode,         // Cloudinary URL
-  qrBase64: qrBase64         // ใช้โชว์ทันที
+  status: true,
+  message: "QR code generated successfully",       
+  qrCode: qr         
 });
 
   }
   catch (error) {
     console.error("Error generating QR code:", error);
-    return res.status(500).json({ success: false, message: "Server error" });
+    return res.status(500).json({ status: false, message: "Server error" });
   }
 })
 
