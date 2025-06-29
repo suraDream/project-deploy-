@@ -240,9 +240,9 @@ router.post(
       // INSERT ข้อมูลสนามย่อย
       for (const sub of subFields) {
         const subFieldResult = await pool.query(
-          `INSERT INTO sub_field (field_id, sub_field_name, price, sport_id, user_id) 
-         VALUES ($1, $2, $3, $4, $5) RETURNING sub_field_id`,
-          [field_id, sub.name, sub.price, sub.sport_id, user_id]
+          `INSERT INTO sub_field (field_id, sub_field_name, price, sport_id, user_id,wid_field,length_field,players_per_team,field_surface) 
+         VALUES ($1, $2, $3, $4, $5,$6,$7,$8,$9) RETURNING sub_field_id`,
+          [field_id, sub.name, sub.price, sub.sport_id, user_id,sub.wide_field, sub.length_field, sub.players_per_team, sub.field_surface]
         );
         const sub_field_id = subFieldResult.rows[0].sub_field_id;
         // เพิ่ม add_on ที่เกี่ยวข้องกับ sub_field

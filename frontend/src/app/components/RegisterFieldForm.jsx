@@ -281,7 +281,7 @@ export default function RegisterFieldForm() {
   const addSubField = () => {
     setSubFields([
       ...subFields,
-      { name: "", price: "", sport_id: "", user_id: user.user_id, addOns: [] },
+      { name: "", price: "", sport_id: "", user_id: user.user_id, addOns: [], wide_field: "", length_field: "", players_per_team: "", field_surface: "" },
     ]);
   };
 
@@ -524,7 +524,7 @@ export default function RegisterFieldForm() {
             />
           </div>
           <div className="input-group-register-field">
-            <label>พิกัด GPS:(เช่น16.05xxxxx, 103.65xxxxx)</label>
+            <label>พิกัด GPS:(เช่น16.05xxxxx, 103.65xxxxx)</label> <a href="https://support.google.com/maps/answer/18539?hl=th&co=GENIE.Platform%3DiOS&oco=0/" target="_blank" rel="noopener noreferrer">วิธีเอาละติจูดและลองจิจูดใน Google Maps</a>    <p></p><a href="https://maps.google.com/" target="_blank" rel="noopener noreferrer">Google Maps</a>
             <input
               type="text"
               maxLength={100}
@@ -627,6 +627,16 @@ export default function RegisterFieldForm() {
                       updateSubField(subIndex, "name", e.target.value)
                     }
                   />
+                </div>
+                <p>จำนวนผู้เล่นต่อฝั่ง</p>
+                <input type="text" placeholder="เช่น 5คน กรอกแค่ 5 มา" value={sub.players_per_team}  onChange={(e)=> updateSubField(subIndex,"players_per_team",e.target.value)} /> <label htmlFor="">คน</label>
+                <div>
+                  <p>ความกว้างของสนาม</p>
+                  <input type="text" placeholder='ความกว้างของสนาม (เมตร)' value={sub.wide_field} onChange={(e) => updateSubField(subIndex, "wide_field", e.target.value)} />
+                  <p>ความยาวของสนาม</p>
+                  <input type="text" placeholder='ความยาวของสนาม (เมตร)' value={sub.length_field} onChange={(e) => updateSubField(subIndex, "length_field", e.target.value)} />
+                  <p>พื้นสนาม</p>
+                  <input type="text" placeholder="เช่น หญ้าเทียม,หญ้าจริง "  value={sub.field_surface} onChange={(e)=>updateSubField(subIndex,"field_surface",e.target.value)}/>
                 </div>
                 {/*Input กรอกราคา */}
                 <div className="input-group-register-field">
@@ -778,14 +788,15 @@ export default function RegisterFieldForm() {
               value={fieldData.number_bank}
               onChange={(e) => {
                 const value = e.target.value;
-                const isPromptPay = fieldData.account_type === "พร้อมเพย์"; // ตรวจสอบประเภทบัญชีที่เลือก
+                
+                  const isPromptPay = fieldData.account_type // ตรวจสอบประเภทบัญชีที่เลือก
 
                 // อนุญาตเฉพาะตัวเลข
                 if (/^\d*$/.test(value)) {
                   // ตรวจสอบจำนวนหลัก
                   if (
                     (isPromptPay && value.length <= 13) || // พร้อมเพย์ 10 หรือ 13 หลัก
-                    (!isPromptPay && value.length <= 12) // ธนาคาร 12 หลัก
+                    (!isPromptPay && value.length <= 13) // ธนาคาร 12 หลัก
                   ) {
                     setFieldData({ ...fieldData, number_bank: value });
                   }
@@ -797,7 +808,7 @@ export default function RegisterFieldForm() {
 
                 // ตรวจสอบความถูกต้องของเลขที่กรอก
                 if (
-                  (!isPromptPay && length !== 12) || // ถ้าเป็นบัญชีธนาคารต้อง 12 หลัก
+                  (!isPromptPay && length !== 13 && length !== 10) || // 
                   (isPromptPay && length !== 10 && length !== 13) // ถ้าเป็นพร้อมเพย์ต้อง 10 หรือ 13 หลัก
                 ) {
                   setMessage(

@@ -18,6 +18,8 @@ module.exports = function (io) {
   const { DateTime } = require("luxon");
   const qrcode = require("qrcode");
   const promptpay = require("promptpay-qr");
+  
+
 
   const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -1411,7 +1413,7 @@ const fieldId = fieldIdResult.rows[0].field_id;
       return res.status(400).json({ success: false, message: "Missing bank number" });
     }
 
-     const qrCodeData = promptpay(number_bank, {
+     const qrCodeData = promptpay("6791-90881-5", {
     amount: Number(amount),
 });
 
