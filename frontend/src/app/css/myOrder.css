@@ -52,7 +52,7 @@
 .booking-list {
   list-style: none;
   min-height: 500px;
-  background: rgba(255, 255, 255, 0.715);
+  background: rgba(255, 255, 255, 0.442);
   border-radius: 20px;
   margin: 0px auto 10px auto;
   padding: 1.5rem;
@@ -181,7 +181,6 @@
   margin: 0.4rem 0;
   line-height: 1.5;
   font-size: 1rem;
-  color: var(--text-color);
 }
 
 .booking-detail strong {
@@ -534,7 +533,7 @@
 }
 
 .pagination-container-order button:hover {
-  background-color: #ffc107;
+  background: #2778ae;
 }
 
 .pagination-container-order button:disabled {
@@ -543,7 +542,7 @@
 }
 
 .pagination-container-order .active-page-order {
-  background-color: #ffc107;
+  background: #3498db;
   color: white;
   font-weight: bold;
 }
@@ -561,15 +560,18 @@
     font-size: 1.3rem;
   }
 
+  .swip-mode-order {
+    margin: 17px auto;
+  }
+
   .date-range-filter {
     flex-direction: column;
     gap: 10px;
   }
 
   .clear-filters-btn {
-    margin-left: 0;
-    margin-top: 10px;
-    width: 100%;
+    margin: 10px auto;
+    /* width: 100%; */
   }
   .stats-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -603,8 +605,8 @@
 @media (max-width: 675px) {
   .myorder-container input[type="date"],
   .myorder-container select {
-    width: 100%;
-    max-width: 100%;
+    width: 85%;
+    max-width: 85%;
     box-sizing: border-box;
     margin: auto;
     min-width: 150px;

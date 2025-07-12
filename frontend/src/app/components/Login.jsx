@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import "@/app/css/login.css";
 import { useAuth } from "@/app/contexts/AuthContext";
 import Link from "next/link";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function Login() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -18,6 +19,7 @@ export default function Login() {
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
+  usePreventLeave(startProcessLoad);
 
   useEffect(() => {
     if (!isLoading && user) {
@@ -48,7 +50,7 @@ export default function Login() {
         data.token &&
         /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent)
       ) {
-        localStorage.setItem("auth_token", data.token);
+        localStorage.setItem("auth_mobile_token", data.token);
       }
 
       if (!response.ok) {
@@ -76,6 +78,16 @@ export default function Login() {
       SetstartProcessLoad(false);
     }
   };
+
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage("");
+      }, 2000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
 
   return (
     <div className="login-container">
@@ -117,7 +129,15 @@ export default function Login() {
           type="submit"
           disabled={startProcessLoad}
         >
-          {startProcessLoad ? "กำลังเข้าสู่ระบบ..." : "Login"}
+          {startProcessLoad ? (
+            <span className="dot-loading">
+              <span className="dot one">●</span>
+              <span className="dot two">●</span>
+              <span className="dot three">●</span>
+            </span>
+          ) : (
+            "บันทึก"
+          )}
         </button>
 
         <div className="reset-password">

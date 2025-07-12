@@ -4,7 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import "@/app/css/Booking.css";
 import { useAuth } from "@/app/contexts/AuthContext";
 import { io } from "socket.io-client";
-import { data } from "autoprefixer";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function Booking() {
   const { subFieldId } = useParams();
@@ -63,6 +63,7 @@ export default function Booking() {
   // const [bookingId, setBookingId] = useState("");
   const [dataLoading, setDataLoading] = useState(true);
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
+  usePreventLeave(startProcessLoad);
 
   useEffect(() => {
     if (isLoading) return;
@@ -82,6 +83,8 @@ export default function Booking() {
   // ดึง slot ที่มีสถานะ
   const fetchBookedSlots = useCallback(async () => {
     try {
+      const token = localStorage.getItem("auth_mobile_token");
+
       const bookingDateRaw = sessionStorage.getItem("booking_date");
       const bookingDateFormatted = new Date(bookingDate).toLocaleDateString(
         "en-CA"
@@ -103,6 +106,9 @@ export default function Booking() {
         `${API_URL}/booking/booked-block/${subFieldId}/${start}/${end}`,
         {
           credentials: "include",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         }
       );
       const data = await res.json();
@@ -186,9 +192,14 @@ export default function Booking() {
     // console.log(`bookedSlots${bookedSlots}`);
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem("auth_mobile_token");
+
         const res = await fetch(`${API_URL}/field/field-fac/${field_id}`, {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           credentials: "include",
         });
 
@@ -219,9 +230,14 @@ export default function Booking() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem("auth_mobile_token");
+
         const res = await fetch(`${API_URL}/field/field-data/${subFieldId}`, {
           method: "GET",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           credentials: "include",
         });
         const data = await res.json();
@@ -271,10 +287,13 @@ export default function Booking() {
 
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem("auth_mobile_token");
+
         const res = await fetch(`${API_URL}/field/open-days/${subFieldId}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
         });
@@ -415,12 +434,12 @@ export default function Booking() {
     let totalHoursFormat;
     let hours = minutes / 60;
     if (hours % 1 === 0.5) {
-      hours = Math.floor(hours) + 0.5;
+      hours = Math.floor(hours) + 0.3;
       setTotalHoursFormat(totalHoursFormat);
     }
 
     if (hours % 1 != 0) {
-      totalHoursFormat = Math.floor(hours) + 0.5;
+      totalHoursFormat = Math.floor(hours) + 0.3;
       setTotalHoursFormat(totalHoursFormat);
     } else {
       setTotalHoursFormat(hours);
@@ -511,31 +530,31 @@ export default function Booking() {
     setPayMethod(e.target.value);
   };
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024;
-  const handleimgChange = (e) => {
-    const file = e.target.files[0];
+  // const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  // const handleimgChange = (e) => {
+  //   const file = e.target.files[0];
 
-    // ตรวจสอบขนาดไฟล์
-    if (file.size > MAX_FILE_SIZE) {
-      setMessage("ไฟล์รูปภาพมีขนาดใหญ่เกินไป (สูงสุด 5MB)");
-      setMessageType("error");
-      e.target.value = null;
-      return;
-    }
+  //   // ตรวจสอบขนาดไฟล์
+  //   if (file.size > MAX_FILE_SIZE) {
+  //     setMessage("ไฟล์รูปภาพมีขนาดใหญ่เกินไป (สูงสุด 5MB)");
+  //     setMessageType("error");
+  //     e.target.value = null;
+  //     return;
+  //   }
 
-    // ตรวจสอบว่าไฟล์ที่เลือกเป็นรูปภาพหรือไม่
-    if (file) {
-      if (file.type.startsWith("image/")) {
-        // ถ้าเป็นไฟล์รูปภาพ, เก็บข้อมูลลงในสถานะ
-        setDepositSlip(file);
-        setImgPreview(URL.createObjectURL(file)); // สร้าง URL สำหรับแสดงตัวอย่าง
-      } else {
-        e.target.value = null;
-        setMessage("โปรดเลือกเฉพาะไฟล์รูปภาพเท่านั้น");
-        setMessageType("error");
-      }
-    }
-  };
+  //   // ตรวจสอบว่าไฟล์ที่เลือกเป็นรูปภาพหรือไม่
+  //   if (file) {
+  //     if (file.type.startsWith("image/")) {
+  //       // ถ้าเป็นไฟล์รูปภาพ, เก็บข้อมูลลงในสถานะ
+  //       setDepositSlip(file);
+  //       setImgPreview(URL.createObjectURL(file)); // สร้าง URL สำหรับแสดงตัวอย่าง
+  //     } else {
+  //       e.target.value = null;
+  //       setMessage("โปรดเลือกเฉพาะไฟล์รูปภาพเท่านั้น");
+  //       setMessageType("error");
+  //     }
+  //   }
+  // };
 
   function isPastSlot(slot) {
     const [startTime] = slot.split(" - ");
@@ -644,6 +663,8 @@ export default function Booking() {
   };
 
   const handleSubmit = async () => {
+    const token = localStorage.getItem("auth_mobile_token");
+
     const bookingData = new FormData();
     SetstartProcessLoad(true);
     const facilityList = Object.values(selectedFacilities).map((item) => ({
@@ -681,13 +702,23 @@ export default function Booking() {
       const response = await fetch(`${API_URL}/booking`, {
         method: "POST",
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+
         body: bookingData,
       });
+      const data = await response.json();
 
+      if (response.status === 429 && data.code === "RATE_LIMIT") {
+        router.push("/api-rate-limited");
+        return;
+      }
       if (!response.ok) {
         const errorData = await response.json();
         setMessage(errorData.message);
         setMessageType("error");
+        setShowModal(false);
         setStartDate("");
         setEndDate("");
         setCanBook(false);
@@ -705,7 +736,6 @@ export default function Booking() {
         setTotalHoursFormat(0);
         setSumFac(0);
       } else {
-        const data = await response.json();
         if (data.success) {
           setMessage("บันทึกการจองสำเร็จ");
           setMessageType("success");
@@ -833,6 +863,27 @@ export default function Booking() {
     }
   }
 
+  const formatDateToThai = (date) => {
+    if (!date) return "ไม่ทราบวันที่"; // กัน null/undefined
+
+    const parsedDate = new Date(date);
+    if (isNaN(parsedDate)) return "ไม่สามารถแปลงวันที่ได้"; // กัน Invalid Date
+
+    const options = { day: "numeric", month: "long", year: "numeric" };
+    return new Intl.DateTimeFormat("th-TH", options).format(parsedDate);
+  };
+
+  const formatPrice = (value) => new Intl.NumberFormat("th-TH").format(value);
+const formatTotalHours = (totalHours) => {
+  if (totalHours  === 0.5) {
+    return '30 นาที';
+  } else if (totalHours % 1 === 0.5) {
+    return `${Math.floor(totalHours)} ชั่วโมง 30 นาที`;
+  } else {
+    return `${totalHours} ชั่วโมง`;
+  }
+};
+
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => {
@@ -911,7 +962,7 @@ export default function Booking() {
                     key={index}
                     className={slotClass}
                     onClick={() => {
-                      if (!isBooked && !isPast ) toggleSelectSlot(index);
+                      if (!isBooked && !isPast) toggleSelectSlot(index);
                     }}
                     style={{
                       cursor: isBooked || isPast ? "not-allowed" : "pointer",
@@ -943,7 +994,9 @@ export default function Booking() {
                   }
                 >
                   <p className="addon-content-book">ปกติ</p>
-                  <p className="addon-price-book">{price} บาท/ชม.</p>
+                  <p className="addon-price-book">
+                    {formatPrice(price)} บาท/ชม.
+                  </p>
                 </div>
 
                 {addOns.map((addOn) => (
@@ -959,7 +1012,9 @@ export default function Booking() {
                     }
                   >
                     <p className="addon-content-book">{addOn.content}</p>
-                    <p className="addon-price-book">{addOn.price} บาท/ชม.</p>
+                    <p className="addon-price-book">
+                      {formatPrice(addOn.price)} บาท/ชม.
+                    </p>
                   </div>
                 ))}
               </div>
@@ -980,7 +1035,8 @@ export default function Booking() {
             )}
 
             <div className="time-info">
-              <p>{bookingDate}</p> เปิด: {openHours} - {closeHours} น
+              <p>{formatDateToThai(bookingDate)}</p> เปิด: {openHours} -{" "}
+              {closeHours} น
             </div>
 
             <div className="time-info-book">
@@ -988,7 +1044,7 @@ export default function Booking() {
               <strong>เวลาสิ้นสุด: {timeEnd || "-"}</strong>
               <strong>
                 รวมเวลา:{" "}
-                {totalHoursFormat ? `${totalHoursFormat} ชั่วโมง` : "-"}
+                {totalHours? formatTotalHours(totalHours) : "-"}
               </strong>
             </div>
 
@@ -1036,10 +1092,10 @@ export default function Booking() {
                   <strong>เวลาสิ้นสุด: {timeEnd || "-"}</strong>
                   <strong>
                     รวมเวลา:{" "}
-                    {totalHoursFormat ? `${totalHoursFormat} ชั่วโมง` : "-"}
+                    {totalHoursFormat ? formatTotalHours(totalHoursFormat) : "-"}
                   </strong>
                   <strong className="total-per-hour">
-                    ราคา: {totalPrice} บาท
+                    ราคา: {formatPrice(totalPrice)} บาท
                   </strong>
                 </div>
               </div>
@@ -1078,14 +1134,14 @@ export default function Booking() {
                           }
                         />
                         <label>
-                          {fac.fac_name} - {fac.fac_price} บาท
+                          {fac.fac_name} - {formatPrice(fac.fac_price)} บาท
                         </label>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
-              <div className="book-owner-info">
+              {/* <div className="book-owner-info">
                 <h2 className="payment-book">การชำระเงิน</h2>
                 <strong>ธนาคาร: {nameBank}</strong>
                 <strong>
@@ -1112,35 +1168,18 @@ export default function Booking() {
                     </div>
                   )}
                 </div>
-                {/* <div className="file-container-book">
-                  <label className="file-label-book">
-                    <input
-                      type="file"
-                      onChange={handleimgChange}
-                      accept="image/*"
-                      className="file-input-hidden-book"
-                    />
-                    เลือกรูปภาพยอดคงเหลือ
-                  </label>
-                  {imgPreview && (
-                    <div className="preview-container">
-                      <p>ตัวอย่างรูป:</p>
-                      <img src={imgPreview} alt="Preview" />
-                    </div>
-                  )}
-                </div> */}
-              </div>
+              </div> */}
               <div className={`total-box ${canBook ? "show" : ""}`}>
                 <div className="summary">
                   <strong className="price-deposit">
-                    มัดจำที่ต้องจ่าย: {priceDeposit} บาท
+                    มัดจำที่ต้องจ่าย: {formatPrice(priceDeposit)} บาท
                   </strong>
 
                   <strong className="total-per-hour">
-                    ราคาหลังหักค่ามัดจำ: {totalRemaining} บาท
+                    ราคาหลังหักค่ามัดจำ: {formatPrice(totalRemaining)} บาท
                   </strong>
                   <strong className="total-remaining">
-                    ยอดรวมสุทธิ: {totalPrice} บาท
+                    ยอดรวมสุทธิ: {formatPrice(totalPrice)} บาท
                   </strong>
                 </div>
                 {totalPrice > 0 && (
@@ -1165,11 +1204,6 @@ export default function Booking() {
                         เงินสด
                       </label>
                     </div>
-                    {startProcessLoad && (
-                      <div className="loading-overlay">
-                        <div className="loading-spinner"></div>
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -1182,7 +1216,15 @@ export default function Booking() {
                   onClick={handleConfirm}
                   className="btn-confirm-confirmbooking"
                 >
-                  ยืนยัน
+                  {startProcessLoad ? (
+                    <span className="dot-loading">
+                      <span className="dot one">●</span>
+                      <span className="dot two">●</span>
+                      <span className="dot three">●</span>
+                    </span>
+                  ) : (
+                    "ยืนยันการจอง"
+                  )}
                 </button>
                 <button
                   style={{

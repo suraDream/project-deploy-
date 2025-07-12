@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from "react";
 import "@/app/css/postField.css";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
-const CreatePost = ({ fieldId, onPostSuccess }) => {
+const CreatePost = ({ fieldId, onPostSuccess, setCurrentPage }) => {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
@@ -12,6 +13,7 @@ const CreatePost = ({ fieldId, onPostSuccess }) => {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState("");
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
+  usePreventLeave(startProcessLoad); 
 
   const MAX_FILE_SIZE = 8 * 1024 * 1024;
   const MAX_FILES = 10;
@@ -81,16 +83,23 @@ const CreatePost = ({ fieldId, onPostSuccess }) => {
     });
     SetstartProcessLoad(true);
     try {
+      const token = localStorage.getItem("auth_mobile_token");
+
       await new Promise((resolve) => setTimeout(resolve, 200));
       const response = await fetch(`${API_URL}/posts/post`, {
         method: "POST",
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+
         body: formData,
       });
 
       if (response.ok) {
         const data = await response.json();
         onPostSuccess(data.post);
+        setCurrentPage(1); // Reset to the first page after posting
         setMessage("โพสต์เรียบร้อย");
         setMessageType("success");
         setTitle("");
@@ -208,7 +217,15 @@ const CreatePost = ({ fieldId, onPostSuccess }) => {
               disabled={startProcessLoad}
               className="submit-btn-post"
             >
-              สร้างโพส
+              {startProcessLoad ? (
+                <span className="dot-loading">
+                  <span className="dot one">●</span>
+                  <span className="dot two">●</span>
+                  <span className="dot three">● </span>
+                </span>
+              ) : (
+                "สร้างโพสต์"
+              )}
             </button>
             <button
               type="button"
@@ -217,15 +234,15 @@ const CreatePost = ({ fieldId, onPostSuccess }) => {
                 cursor: startProcessLoad ? "not-allowed" : "pointer",
               }}
               disabled={startProcessLoad}
-              onClick={() => setShowPostForm(false)}
+              onClick={() => {
+                setShowPostForm(false);
+                setTitle("");
+                setContent("");
+                setImages([]);
+              }}
             >
               ยกเลิก
             </button>
-            {startProcessLoad && (
-              <div className="loading-overlay">
-                <div className="loading-spinner"></div>
-              </div>
-            )}
           </form>
         )}
       </div>

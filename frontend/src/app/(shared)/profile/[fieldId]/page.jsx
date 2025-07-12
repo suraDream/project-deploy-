@@ -8,6 +8,7 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/th";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 dayjs.extend(relativeTime);
 dayjs.locale("th");
@@ -42,7 +43,7 @@ export default function CheckFieldDetail() {
   const [reviewData, setReviewData] = useState([]);
   const [selectedRating, setSelectedRating] = useState("ทั้งหมด");
   const [currentPage, setCurrentPage] = useState(1);
-  const postPerPage = 5;
+  usePreventLeave(startProcessLoad);
 
   useEffect(() => {
     if (isLoading) return;
@@ -72,12 +73,15 @@ export default function CheckFieldDetail() {
 
     const fetchFieldData = async () => {
       try {
+        const token = localStorage.getItem("auth_mobile_token");
+
         sessionStorage.setItem("field_id", fieldId);
 
         const res = await fetch(`${API_URL}/profile/${fieldId}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
         });
@@ -137,10 +141,13 @@ export default function CheckFieldDetail() {
 
     const fetchPosts = async () => {
       try {
+        const token = localStorage.getItem("auth_mobile_token");
+
         const res = await fetch(`${API_URL}/posts/${fieldId}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
         });
@@ -155,23 +162,62 @@ export default function CheckFieldDetail() {
           setMessageType("error");
         } else {
           setPostData(data);
-          console.log(data)
+          console.log(data);
         }
       } catch (error) {
         console.error("Error fetching post data:", error);
         setMessage("ไม่สามารถเชือมต่อกับเซิร์ฟเวอร์ได้", error);
         setMessageType("error");
       } finally {
-        setDataLoading(false);
+        // setDataLoading(false);
       }
     };
 
     fetchPosts();
   }, [fieldId, router]);
 
+  // useEffect(() => {
+  //   window.scrollTo({ top: 900, behavior: "smooth" });
+  // }, [currentPage]);
+
+  const postPerPage = 5;
+
   const indexOfLast = currentPage * postPerPage;
   const indexOfFirst = indexOfLast - postPerPage;
   const currentPostProfile = postData.slice(indexOfFirst, indexOfLast);
+
+  const totalPages = Math.ceil(postData.length / postPerPage);
+
+  const getPaginationRange = (current, total) => {
+    const delta = 2; // จำนวนหน้าที่แสดงก่อน/หลังหน้าปัจจุบัน
+    const range = [];
+    const rangeWithDots = [];
+    let l;
+
+    for (let i = 1; i <= total; i++) {
+      if (
+        i === 1 ||
+        i === total ||
+        (i >= current - delta && i <= current + delta)
+      ) {
+        range.push(i);
+      }
+    }
+
+    for (let i of range) {
+      if (l) {
+        if (i - l === 2) {
+          rangeWithDots.push(l + 1);
+        } else if (i - l > 2) {
+          rangeWithDots.push("...");
+        }
+      }
+      rangeWithDots.push(i);
+      l = i;
+    }
+
+    return rangeWithDots;
+  };
 
   useEffect(() => {
     const fetchFacilities = async () => {
@@ -189,7 +235,7 @@ export default function CheckFieldDetail() {
         setMessage("ไม่สามารถเชือมต่อกับเซิร์ฟเวอร์ได้", err);
         setMessageType("error");
       } finally {
-        setDataLoading(false);
+        // setDataLoading(false);
       }
     };
 
@@ -208,7 +254,7 @@ export default function CheckFieldDetail() {
       } catch (error) {
         console.error("Error fetching review:", error);
       } finally {
-        setDataLoading(false);
+        // setDataLoading(false);
       }
     };
     fetchReviews();
@@ -237,29 +283,29 @@ export default function CheckFieldDetail() {
     }));
   };
 
-  const handlePrev = (postId, length) => {
-    setImageIndexes((prev) => ({
-      ...prev,
-      [postId]:
-        (prev[postId] || 0) - 1 < 0 ? length - 1 : (prev[postId] || 0) - 1,
-    }));
-  };
+  // const handlePrev = (postId, length) => {
+  //   setImageIndexes((prev) => ({
+  //     ...prev,
+  //     [postId]:
+  //       (prev[postId] || 0) - 1 < 0 ? length - 1 : (prev[postId] || 0) - 1,
+  //   }));
+  // };
 
-  const handleNext = (postId, length) => {
-    setImageIndexes((prev) => ({
-      ...prev,
-      [postId]: (prev[postId] || 0) + 1 >= length ? 0 : (prev[postId] || 0) + 1,
-    }));
-  };
+  // const handleNext = (postId, length) => {
+  //   setImageIndexes((prev) => ({
+  //     ...prev,
+  //     [postId]: (prev[postId] || 0) + 1 >= length ? 0 : (prev[postId] || 0) + 1,
+  //   }));
+  // };
 
-  const handleImageClick = (imgUrl, postId) => {
-    const currentPost = postData.find((p) => p.post_id === postId);
-    const images = currentPost?.images || [];
-    const index = images.findIndex((img) => `${img.image_url}` === `${imgUrl}`);
-    setSelectedImage(`${imgUrl}`);
-    setSelectedPostId(postId);
-    setImageIndexes((prev) => ({ ...prev, [postId]: index }));
-  };
+  // const handleImageClick = (imgUrl, postId) => {
+  //   const currentPost = postData.find((p) => p.post_id === postId);
+  //   const images = currentPost?.images || [];
+  //   const index = images.findIndex((img) => `${img.image_url}` === `${imgUrl}`);
+  //   setSelectedImage(`${imgUrl}`);
+  //   setSelectedPostId(postId);
+  //   setImageIndexes((prev) => ({ ...prev, [postId]: index }));
+  // };
 
   const handleCloseLightbox = () => {
     setSelectedImage(null);
@@ -311,6 +357,7 @@ export default function CheckFieldDetail() {
 
   const handleEditSubmit = async (e, postId) => {
     e.preventDefault();
+    const token = localStorage.getItem("auth_mobile_token");
 
     const formData = new FormData();
     formData.append("title", editTitle);
@@ -322,6 +369,9 @@ export default function CheckFieldDetail() {
       const res = await fetch(`${API_URL}/posts/update/${postId}`, {
         method: "PATCH",
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: formData,
       });
 
@@ -354,10 +404,14 @@ export default function CheckFieldDetail() {
     SetstartProcessLoad(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 200));
+      const token = localStorage.getItem("auth_mobile_token");
 
       const res = await fetch(`${API_URL}/posts/delete/${postToDelete}`, {
         method: "DELETE",
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
       });
 
       if (res.ok) {
@@ -429,6 +483,8 @@ export default function CheckFieldDetail() {
     return "#";
   };
 
+  const formatPrice = (value) => new Intl.NumberFormat("th-TH").format(value);
+
   useEffect(() => {
     if (message) {
       const timer = setTimeout(() => {
@@ -475,14 +531,14 @@ export default function CheckFieldDetail() {
       )}
       {fieldData?.img_field.length ? (
         <div className="image-container-profile">
-          <div className="head-title-profile">
-            <strong> {fieldData?.field_name}</strong>
-          </div>
           <img
             src={`${fieldData.img_field}`}
             alt="รูปสนามกีฬา"
             className="field-image-profile"
           />
+          <div className="head-title-profile">
+            <strong> {fieldData?.field_name}</strong>
+          </div>
           <div className="profile-btn">
             <button onClick={scrollToBookingSection}>เลือกสนาม</button>
           </div>
@@ -513,10 +569,22 @@ export default function CheckFieldDetail() {
                     <strong>ชื่อสนาม:</strong> {sub.sub_field_name}
                   </p>
                   <p>
-                    <strong>ราคา:</strong> {sub.price} บาท
+                    <strong>ราคา:</strong> {formatPrice(sub.price)} บาท
                   </p>
                   <p>
                     <strong>กีฬา:</strong> {sub.sport_name}
+                  </p>
+                  <p>
+                    <strong>จำนวนคนต่อทีม:</strong> {sub.players_per_team}
+                  </p>
+                  <p>
+                    <strong>ความกว้างของสนาม:</strong> {sub.wid_field} เมตร
+                  </p>
+                  <p>
+                    <strong>ความยาวของสนาม:</strong> {sub.length_field} เมตร
+                  </p>
+                  <p>
+                    <strong>ประเภทของพื้นสนาม</strong> {sub.field_surface}
                   </p>
 
                   {/*  แสดง Add-ons ถ้ามี */}
@@ -525,7 +593,7 @@ export default function CheckFieldDetail() {
                       <h3>ราคาสำหรับจัดกิจกรรมพิเศษ</h3>
                       {sub.add_ons.map((addon) => (
                         <p key={addon.add_on_id}>
-                          {addon.content} - {addon.price} บาท
+                          {addon.content} - {formatPrice(addon.price)} บาท
                         </p>
                       ))}
                     </div>
@@ -557,6 +625,7 @@ export default function CheckFieldDetail() {
           )}
           {canPost && (
             <Post
+              setCurrentPage={setCurrentPage}
               fieldId={fieldId}
               onPostSuccess={(newPost) => {
                 setPostData((prev) => [newPost, ...prev]);
@@ -621,7 +690,15 @@ export default function CheckFieldDetail() {
                     }}
                     disabled={startProcessLoad}
                   >
-                    บันทึก
+                    {startProcessLoad ? (
+                      <span className="dot-loading">
+                        <span className="dot one">●</span>
+                        <span className="dot two">●</span>
+                        <span className="dot three">●</span>
+                      </span>
+                    ) : (
+                      "บันทึก"
+                    )}
                   </button>
                   <button
                     style={{
@@ -630,15 +707,13 @@ export default function CheckFieldDetail() {
                     disabled={startProcessLoad}
                     className="canbtn-post"
                     type="button"
-                    onClick={() => setEditingPostId(null)}
+                    onClick={() => {
+                      setEditingPostId(null);
+                      setPreviewImages([]);
+                    }}
                   >
                     ยกเลิก
                   </button>
-                  {startProcessLoad && (
-                    <div className="loading-overlay">
-                      <div className="loading-spinner"></div>
-                    </div>
-                  )}
                 </form>
               ) : (
                 <>
@@ -703,7 +778,7 @@ export default function CheckFieldDetail() {
                         {post.images.map((_, dotIdx) => (
                           <span
                             key={dotIdx}
-                            className={`dot ${
+                            className={`dot-post ${
                               (imageIndexes[post.post_id] || 0) === dotIdx
                                 ? "active"
                                 : ""
@@ -754,20 +829,45 @@ export default function CheckFieldDetail() {
               )}
             </div>
           ))}
-          <div className="pagination-post-profile">
-            {Array.from(
-              { length: Math.ceil(postData.length / postPerPage) },
-              (_, i) => (
-                <button
-                  key={i}
-                  className={currentPage === i + 1 ? "active" : ""}
-                  onClick={() => setCurrentPage(i + 1)}
-                >
-                  {i + 1}
-                </button>
-              )
-            )}
-          </div>
+          {totalPages > 1 && (
+            <div className="pagination-container-profile">
+              <button
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                «
+              </button>
+
+              {getPaginationRange(currentPage, totalPages).map((page, index) =>
+                page === "..." ? (
+                  <span key={index} className="pagination-dots-profile">
+                    ...
+                  </span>
+                ) : (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentPage(page)}
+                    className={
+                      page === currentPage ? "active-page-profile" : ""
+                    }
+                  >
+                    {page}
+                  </button>
+                )
+              )}
+
+              <button
+                onClick={() =>
+                  setCurrentPage((prev) =>
+                    prev < totalPages ? prev + 1 : prev
+                  )
+                }
+                disabled={currentPage >= totalPages}
+              >
+                »
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ข้อมูลสนามย่อย (sub_fields) */}
@@ -804,7 +904,7 @@ export default function CheckFieldDetail() {
                   rel="noopener noreferrer"
                   style={{
                     display: "flex",
-                    width:"160px",
+                    width: "160px",
                     marginTop: "10px",
                     marginLeft: "auto",
                     marginRight: "auto",
@@ -847,7 +947,8 @@ export default function CheckFieldDetail() {
               {fieldData?.cancel_hours} ชม.
             </p>
             <p>
-              <strong>ค่ามัดจำ:</strong> {fieldData?.price_deposit} บาท
+              <strong>ค่ามัดจำ:</strong> {formatPrice(fieldData?.price_deposit)}{" "}
+              บาท
             </p>
             <p>
               <strong>ธนาคาร:</strong> {fieldData?.name_bank}
@@ -881,7 +982,7 @@ export default function CheckFieldDetail() {
                         key={`${facility.fac_id}-${index}`}
                       >
                         <strong>{facility.fac_name}</strong>:{" "}
-                        <span>{facility.fac_price} บาท</span>
+                        <span>{formatPrice(facility.fac_price)} บาท</span>
                       </div>
                     ))}
                   </div>
@@ -960,7 +1061,15 @@ export default function CheckFieldDetail() {
                 disabled={startProcessLoad}
                 onClick={handleDelete}
               >
-                ลบ
+                {startProcessLoad ? (
+                  <span className="dot-loading">
+                    <span className="dot one">●</span>
+                    <span className="dot two">●</span>
+                    <span className="dot three">●</span>
+                  </span>
+                ) : (
+                  "ลบโพสต์"
+                )}
               </button>
               <button
                 style={{
@@ -973,11 +1082,6 @@ export default function CheckFieldDetail() {
                 ยกเลิก
               </button>
             </div>
-            {startProcessLoad && (
-              <div className="loading-overlay">
-                <div className="loading-spinner"></div>
-              </div>
-            )}
           </div>
         </div>
       )}

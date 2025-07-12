@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import "@/app/css/checkField.css";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function CheckFieldDetail() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
   const { fieldId } = useParams(); // รับค่า field_id จาก URL
   const [fieldData, setFieldData] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false); // เปิดหรือปิดโมดอลยืนยัน
   const [newStatus, setNewStatus] = useState(""); // เก็บสถานะใหม่ที่จะเปลี่ยน
   const router = useRouter();
@@ -18,6 +18,14 @@ export default function CheckFieldDetail() {
   const [facilities, setFacilities] = useState([]);
   const [dataLoading, setDataLoading] = useState(true);
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
+  const [reasoning, setReasoning] = useState([]);
+  usePreventLeave(startProcessLoad);
+const REASON_OPTIONS = [
+  { id:1,value: "ได้" },
+  { id:2,value: "2",  },
+  { id:3,value: "3",},
+  { id:4,value: "4" },
+];
 
   useEffect(() => {
     if (isLoading) return;
@@ -40,10 +48,13 @@ export default function CheckFieldDetail() {
       if (!fieldId) return;
       try {
         await new Promise((resolve) => setTimeout(resolve, 200));
+        const token = localStorage.getItem("auth_mobile_token");
+
         const res = await fetch(`${API_URL}/field/${fieldId}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
         });
@@ -99,6 +110,8 @@ export default function CheckFieldDetail() {
     setShowConfirmModal(true); // เปิดโมดอล
   };
 
+  
+
   // ฟังก์ชันปิดโมดอล
   const closeConfirmModal = () => {
     setShowConfirmModal(false); // ปิดโมดอล
@@ -108,20 +121,30 @@ export default function CheckFieldDetail() {
   const updateFieldStatus = async (fieldId, newStatus) => {
     SetstartProcessLoad(true);
     try {
-      const response = await fetch(`${API_URL}/field/${fieldId}`, {
+      const token = localStorage.getItem("auth_mobile_token");
+
+      const response = await fetch(`${API_URL}/field/update-status/${fieldId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, reasoning: reasoning }),
       });
+      console.log(reasoning)
 
       const data = await response.json();
       if (response.ok) {
         setFieldData({ ...fieldData, status: newStatus });
         setMessage(`อัพเดทสถานะเป็น: ${newStatus}`);
-        setMessageType("succes");
+        {
+          newStatus === "ผ่านการอนุมัติ"
+            ? setMessageType("success")
+            : setMessageType("error");
+        }
+        
+        closeConfirmModal(); // ปิดโมดอลหลังจากยืนยัน
       } else {
         setMessage(`เกิดข้อผิดพลาด: ${data.error}`);
         setMessageType("error");
@@ -144,6 +167,7 @@ export default function CheckFieldDetail() {
     Sat: "เสาร์",
     Sun: "อาทิตย์",
   };
+  const formatPrice = (value) => new Intl.NumberFormat("th-TH").format(value);
 
   const StatusChangeModal = ({ newStatus, onConfirm, onClose }) => (
     <div className="confirm-modal-check-field">
@@ -152,13 +176,58 @@ export default function CheckFieldDetail() {
           คุณแน่ใจว่าจะเปลี่ยนสถานะเป็น: <h2>{newStatus}?</h2>
         </div>
         <div className="modal-actions-check-field">
-          <button className="confirmbtn" onClick={onConfirm}>
-            ยืนยัน
-          </button>
-          <button className="cancelbtn" onClick={onClose}>
+          <button
+            style={{
+              cursor: startProcessLoad ? "not-allowed" : "pointer",
+            }}
+            disabled={startProcessLoad}
+            className="confirmbtn"
+            onClick={onConfirm}
+          >
+            {startProcessLoad ? (
+              <span className="dot-loading">
+                <span className="dot one">●</span>
+                <span className="dot two">●</span>
+                <span className="dot three">●</span>
+              </span>
+            ) : (
+              "ยืนยัน"
+            )}
+          </button >
+          <button
+            style={{
+              cursor: startProcessLoad ? "not-allowed" : "pointer",
+            }}
+            disabled={startProcessLoad}
+            className="cancelbtn"
+            onClick={onClose}
+          >
             ยกเลิก
           </button>
+            {newStatus === "ไม่ผ่านการอนุมัติ" && (
+  <div style={{ marginTop: "12px" }}>
+    <label>เลือกเหตุผลการปฏิเสธ:</label>
+    {REASON_OPTIONS.map((option) => (
+      <div key={option.id}>
+        <input
+          type="checkbox"
+          value={option.id}
+          checked={reasoning.some((r) => r.id === option.id)}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setReasoning([...reasoning, { id: option.id, value: option.value }]);
+            } else {
+              setReasoning(reasoning.filter((r) => r.id !== option.id));
+            }
+          }}
+        />
+        <span style={{ marginLeft: "8px" }}>{option.value}</span>
+      </div>
+    ))}
+  </div>
+)}
         </div>
+        
       </div>
     </div>
   );
@@ -243,7 +312,9 @@ export default function CheckFieldDetail() {
               </div>
             ) : (
               <p>
-                {fieldData?.open_days?.map((day) => daysInThai[day])?.join(", ")}
+                {fieldData?.open_days
+                  ?.map((day) => daysInThai[day])
+                  ?.join(", ")}
               </p>
             )}
             <p>
@@ -255,7 +326,8 @@ export default function CheckFieldDetail() {
               {fieldData?.last_name}
             </p>
             <p>
-              <strong>ค่ามัดจำ:</strong> {fieldData?.price_deposit} บาท
+              <strong>ค่ามัดจำ:</strong> {formatPrice(fieldData?.price_deposit)}{" "}
+              บาท
             </p>
             <p>
               <strong>ธนาคาร:</strong> {fieldData?.name_bank}
@@ -306,8 +378,8 @@ export default function CheckFieldDetail() {
                 >
                   {" "}
                   {/* Unique key using both fac_id and index */}
-                  <strong>{facility.fac_name}</strong>:{" "}
-                  <p>{facility.fac_price} บาท</p>
+                  <strong>{facility.fac_name}</strong>{" "}
+                  <p>{formatPrice(facility.fac_price)} บาท</p>
                 </div>
               ))}
             </div>
@@ -323,13 +395,27 @@ export default function CheckFieldDetail() {
                 className="sub-field-card-check-field"
               >
                 <p>
-                  <strong>ชื่อสนามย่อย:</strong> {sub.sub_field_name}
+                  <strong>ชื่อสนามย่อย:</strong> {sub?.sub_field_name}
                 </p>
                 <p>
-                  <strong>ราคา:</strong> {sub.price} บาท
+                  <strong>ราคา:</strong> {formatPrice(sub?.price)} บาท
                 </p>
                 <p>
-                  <strong>ประเภทกีฬา:</strong> {sub.sport_name}
+                  <strong>ประเภทกีฬา:</strong> {sub?.sport_name}
+                </p>
+                <p>
+                  <strong>ผู้เล่นต่อฝั่ง:</strong> {sub?.players_per_team} คน
+                </p>
+                <p>
+                  <strong>ความกว้างของสนาม</strong>{" "}
+                  {formatPrice(sub?.wid_field)} เมตร
+                </p>
+                <p>
+                  <strong>ความยาวของสนาม</strong>{" "}
+                  {formatPrice(sub?.length_field)} เมตร
+                </p>
+                <p>
+                  <strong>ประเภทของพื้นสนาม</strong> {sub?.field_surface}
                 </p>
                 {/*  แสดง Add-ons ถ้ามี */}
                 {sub.add_ons && sub.add_ons.length > 0 ? (
@@ -337,7 +423,7 @@ export default function CheckFieldDetail() {
                     <h3>ราคาสำหรับจัดกิจกรรมพิเศษ</h3>
                     {sub.add_ons.map((addon) => (
                       <p key={addon.add_on_id}>
-                        {addon.content} - {addon.price} บาท
+                        {addon.content} - {formatPrice(addon.price)} บาท
                       </p>
                     ))}
                   </div>
@@ -376,21 +462,16 @@ export default function CheckFieldDetail() {
             </>
           )}
         </div>
-        {startProcessLoad && (
-          <div className="loading-overlay">
-            <div className="loading-spinner"></div>
-          </div>
-        )}
         {/* โมดอลยืนยันการเปลี่ยนสถานะ */}
         {showConfirmModal && (
           <StatusChangeModal
             newStatus={newStatus}
             onConfirm={() => {
               updateFieldStatus(fieldId, newStatus);
-              closeConfirmModal(); // ปิดโมดอลหลังจากยืนยัน
             }}
             onClose={closeConfirmModal}
           />
+          
         )}
       </div>
     </>

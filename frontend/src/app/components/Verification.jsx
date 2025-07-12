@@ -3,6 +3,7 @@ import { useState, useEffect, use } from "react";
 import "@/app/css/Verification.css";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function Verification() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -14,6 +15,7 @@ export default function Verification() {
   const router = useRouter("");
   const { user, isLoading, setUser } = useAuth();
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
+  usePreventLeave(startProcessLoad);
 
   useEffect(() => {
     if (isLoading) return;
@@ -47,11 +49,14 @@ export default function Verification() {
     e.preventDefault();
     SetstartProcessLoad(true);
     try {
+      const token = localStorage.getItem("auth_mobile_token");
+
       await new Promise((resolve) => setTimeout(resolve, 200));
       const res = await fetch(`${API_URL}/register/verify/${userId}`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
         body: JSON.stringify({ otp }),
@@ -88,10 +93,13 @@ export default function Verification() {
     SetstartProcessLoad(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 200));
+      const token = localStorage.getItem("auth_mobile_token");
+
       const res = await fetch(`${API_URL}/register/new-otp/${userId}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
         body: JSON.stringify({ email: userEmail }),
@@ -190,14 +198,17 @@ export default function Verification() {
               }}
               disabled={startProcessLoad}
             >
-              ยืนยัน
+              {startProcessLoad ? (
+                <span className="dot-loading">
+                  <span className="dot one">●</span>
+                  <span className="dot two">●</span>
+                  <span className="dot three">●</span>
+                </span>
+              ) : (
+                "ยืนยัน E-mail"
+              )}
             </button>
           </div>
-          {startProcessLoad && (
-            <div className="loading-overlay">
-              <div className="loading-spinner"></div>
-            </div>
-          )}
         </form>
       </div>
     </>

@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import "@/app/css/myfield.css";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function MyFieldPage() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -21,6 +22,7 @@ export default function MyFieldPage() {
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const fieldPerPage = 20;
+  usePreventLeave(startProcessLoad); 
 
   useEffect(() => {
     if (isLoading) return;
@@ -42,10 +44,13 @@ export default function MyFieldPage() {
     const fetchMyFields = async () => {
       try {
         // await new Promise((resolve) => setTimeout(resolve, 2000));
+        const token = localStorage.getItem("auth_mobile_token");
+
         const res = await fetch(`${API_URL}/myfield/myfields`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
         });
@@ -103,6 +108,8 @@ export default function MyFieldPage() {
 
   const confirmDeleteSubField = async () => {
     try {
+      const token = localStorage.getItem("auth_mobile_token");
+
       SetstartProcessLoad(true);
       const res = await fetch(
         `${API_URL}/field/delete/field/${fieldIdToDelete}`,
@@ -110,6 +117,7 @@ export default function MyFieldPage() {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
         }
@@ -214,6 +222,7 @@ export default function MyFieldPage() {
                     ดูรายละเอียด
                   </button>
                   {field.status !== "รอตรวจสอบ" && (
+                     
                     <button
                       onClick={() =>
                         router.push(`/editField/${field.field_id}`)
@@ -222,6 +231,8 @@ export default function MyFieldPage() {
                     >
                       แก้ไข
                     </button>
+                   
+          
                   )}
                   <button
                     onClick={() => handleDeleteField(field.field_id)}
@@ -230,7 +241,10 @@ export default function MyFieldPage() {
                     ลบ
                   </button>
                 </div>
-                <button
+                
+                     {field.status == "ผ่านการอนุมัติ" && (
+                     <>
+                      <button
                   onClick={() => router.push(`/myOrder/${field.field_id}`)}
                   className="custom-button-view-order-myfield"
                 >
@@ -242,6 +256,11 @@ export default function MyFieldPage() {
                 >
                   สถิติการจองสนาม
                 </button>
+                     </>
+                     
+                 
+          
+                  )}
               </div>
             ))}
           </div>
@@ -264,7 +283,15 @@ export default function MyFieldPage() {
                   className="savebtn-myfield"
                   onClick={confirmDeleteSubField}
                 >
-                  ยืนยัน
+                  {startProcessLoad ? (
+                    <span className="dot-loading">
+                      <span className="dot one">●</span>
+                      <span className="dot two">●</span>
+                      <span className="dot three">●</span>
+                    </span>
+                  ) : (
+                    "ยืนยัน"
+                  )}
                 </button>
                 <button
                   style={{
@@ -277,11 +304,6 @@ export default function MyFieldPage() {
                   ยกเลิก
                 </button>
               </div>
-              {startProcessLoad && (
-                <div className="loading-overlay">
-                  <div className="loading-spinner"></div>
-                </div>
-              )}
             </div>
           </div>
         )}

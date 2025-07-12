@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import "@/app/css/add.css";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function RegisterFieldForm() {
   const router = useRouter("");
@@ -23,6 +24,7 @@ export default function RegisterFieldForm() {
   const [dataLoading, setDataLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const sportTypePerPage = 4;
+  usePreventLeave(startProcessLoad);
 
   useEffect(() => {
     if (isLoading) return;
@@ -42,11 +44,16 @@ export default function RegisterFieldForm() {
 
   useEffect(() => {
     const fetchSports = async () => {
+      const token = localStorage.getItem("auth_mobile_token");
+
       setDataLoading(true);
       try {
         await new Promise((resolve) => setTimeout(resolve, 200));
         const res = await fetch(`${API_URL}/sports_types`, {
           credentials: "include",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
 
         if (!res.ok) {
@@ -74,6 +81,8 @@ export default function RegisterFieldForm() {
 
   // ฟังก์ชันเพิ่มประเภทกีฬาใหม่
   const addType = async () => {
+    const token = localStorage.getItem("auth_mobile_token");
+
     if (!newSport.trim()) return;
     SetstartProcessLoad(true);
     try {
@@ -82,6 +91,7 @@ export default function RegisterFieldForm() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
         body: JSON.stringify({ sport_name: newSport }),
@@ -111,6 +121,8 @@ export default function RegisterFieldForm() {
 
   // ฟังก์ชันลบประเภทกีฬา
   const deleteSportType = async () => {
+    const token = localStorage.getItem("auth_mobile_token");
+
     if (!SportTypeToDelete) return;
     SetstartProcessLoad(true);
     try {
@@ -121,6 +133,7 @@ export default function RegisterFieldForm() {
           method: "DELETE",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
         }
@@ -149,6 +162,8 @@ export default function RegisterFieldForm() {
 
   // ฟังก์ชันแก้ไขชื่อประเภทกีฬา
   const editSportType = async () => {
+    const token = localStorage.getItem("auth_mobile_token");
+
     if (!newSportName.trim()) return;
     SetstartProcessLoad(true);
     try {
@@ -159,6 +174,7 @@ export default function RegisterFieldForm() {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
           body: JSON.stringify({ sport_name: newSportName }),
@@ -220,7 +236,7 @@ export default function RegisterFieldForm() {
       )}
       <div className="fac-container-admin">
         <div className="input-group-admin">
-          <label>ประเภทกีฬาทั้งหมด</label>
+          <label className="add-sport-title">ประเภทกีฬาทั้งหมด</label>
 
           <div className="addsportcon-admin">
             {!showNewSportInput ? (
@@ -250,7 +266,15 @@ export default function RegisterFieldForm() {
                     type="button"
                     onClick={addType}
                   >
-                    บันทึก
+                    {startProcessLoad ? (
+                      <span className="dot-loading">
+                        <span className="dot one">●</span>
+                        <span className="dot two">●</span>
+                        <span className="dot three">●</span>
+                      </span>
+                    ) : (
+                      "บันทึก"
+                    )}
                   </button>
                   <button
                     className="cancelbtn-admin"
@@ -272,41 +296,86 @@ export default function RegisterFieldForm() {
               <div className="loading-data-spinner"></div>
             </div>
           )}
+          {showEditModal && (
+            <div className="edit-modal-type">
+              <div className="modal-content-type">
+                <input
+                  type="text"
+                  maxLength={50}
+                  value={newSportName}
+                  onChange={(e) => setNewSportName(e.target.value)}
+                  placeholder="แก้ไขชื่อประเภทกีฬา"
+                />
+                <div className="modal-actions-tpye">
+                  <button
+                    className="confirmbtn-type"
+                    style={{
+                      cursor: startProcessLoad ? "not-allowed" : "pointer",
+                    }}
+                    disabled={startProcessLoad}
+                    onClick={editSportType}
+                  >
+                    {startProcessLoad ? (
+                      <span className="dot-loading">
+                        <span className="dot one">●</span>
+                        <span className="dot two">●</span>
+                        <span className="dot three">●</span>
+                      </span>
+                    ) : (
+                      "บันทึกการแก้ไข"
+                    )}
+                  </button>
+                  <button
+                    className="cancelbtn-type"
+                    style={{
+                      cursor: startProcessLoad ? "not-allowed" : "pointer",
+                    }}
+                    disabled={startProcessLoad}
+                    onClick={() => setShowEditModal(false)}
+                  >
+                    ยกเลิก
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
         <div className="typecon-admin">
           {currentsportType.length > 0 ? (
             currentsportType.map((sport) => (
               <div key={sport.sport_id} className="typename-admin">
                 <div className="sportname-admin">{sport.sport_name}</div>
-                <button
-                  className="editbtn-admin"
-                  style={{
-                    cursor: startProcessLoad ? "not-allowed" : "pointer",
-                  }}
-                  disabled={startProcessLoad}
-                  type="button"
-                  onClick={() => {
-                    setEditSport(sport);
-                    setNewSportName(sport.sport_name);
-                    setShowEditModal(true);
-                  }}
-                >
-                  แก้ไข
-                </button>
-                <button
-                  className="deletebtn-admin"
-                  type="button"
-                  style={{
-                    cursor: startProcessLoad ? "not-allowed" : "pointer",
-                  }}
-                  disabled={startProcessLoad}
-                  onClick={() => {
-                    setSportTypeToDelete(sport.sport_id);
-                    setShowConfirmModal(true);
-                  }}
-                >
-                  ลบ
-                </button>
+                <div className="button-group-add">
+                  <button
+                    className="editbtn-admin"
+                    style={{
+                      cursor: startProcessLoad ? "not-allowed" : "pointer",
+                    }}
+                    disabled={startProcessLoad}
+                    type="button"
+                    onClick={() => {
+                      setEditSport(sport);
+                      setNewSportName(sport.sport_name);
+                      setShowEditModal(true);
+                    }}
+                  >
+                    แก้ไข
+                  </button>
+                  <button
+                    className="deletebtn-admin"
+                    type="button"
+                    style={{
+                      cursor: startProcessLoad ? "not-allowed" : "pointer",
+                    }}
+                    disabled={startProcessLoad}
+                    onClick={() => {
+                      setSportTypeToDelete(sport.sport_id);
+                      setShowConfirmModal(true);
+                    }}
+                  >
+                    ลบ
+                  </button>
+                </div>
               </div>
             ))
           ) : (
@@ -340,7 +409,15 @@ export default function RegisterFieldForm() {
                   disabled={startProcessLoad}
                   onClick={deleteSportType}
                 >
-                  ยืนยัน
+                  {startProcessLoad ? (
+                    <span className="dot-loading">
+                      <span className="dot one">●</span>
+                      <span className="dot two">●</span>
+                      <span className="dot three">●</span>
+                    </span>
+                  ) : (
+                    "ยืนยัน"
+                  )}
                 </button>
                 <button
                   className="cancelbtn-type"
@@ -354,48 +431,6 @@ export default function RegisterFieldForm() {
                 </button>
               </div>
             </div>
-          </div>
-        )}
-
-        {showEditModal && (
-          <div className="edit-modal-type">
-            <div className="modal-content-type">
-              <input
-                type="text"
-                maxLength={50}
-                value={newSportName}
-                onChange={(e) => setNewSportName(e.target.value)}
-                placeholder="แก้ไขชื่อประเภทกีฬา"
-              />
-              <div className="modal-actions-tpye">
-                <button
-                  className="confirmbtn-type"
-                  style={{
-                    cursor: startProcessLoad ? "not-allowed" : "pointer",
-                  }}
-                  disabled={startProcessLoad}
-                  onClick={editSportType}
-                >
-                  บันทึกการแก้ไข
-                </button>
-                <button
-                  className="cancelbtn-type"
-                  style={{
-                    cursor: startProcessLoad ? "not-allowed" : "pointer",
-                  }}
-                  disabled={startProcessLoad}
-                  onClick={() => setShowEditModal(false)}
-                >
-                  ยกเลิก
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {startProcessLoad && (
-          <div className="loading-overlay">
-            <div className="loading-spinner"></div>
           </div>
         )}
       </div>

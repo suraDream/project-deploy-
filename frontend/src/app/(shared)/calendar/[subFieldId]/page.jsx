@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Calendar from "react-calendar";
 import "@/app/css/calendarStyles.css";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function MyCalendar() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -17,6 +18,7 @@ export default function MyCalendar() {
   const [messageType, setMessageType] = useState("");
   const { user, isLoading } = useAuth();
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
+  usePreventLeave(startProcessLoad); 
 
   useEffect(() => {
     if (isLoading) return;
@@ -65,10 +67,13 @@ export default function MyCalendar() {
 
     const fetchData = async () => {
       try {
+        const token = localStorage.getItem("auth_mobile_token");
+
         const res = await fetch(`${API_URL}/field/open-days/${subFieldId}`, {
           method: "GET",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
         });
@@ -133,15 +138,16 @@ export default function MyCalendar() {
     const options = { day: "numeric", month: "long", year: "numeric" };
     return new Intl.DateTimeFormat("th-TH", options).format(date);
   };
+  const formatPrice = (value) => new Intl.NumberFormat("th-TH").format(value);
 
   const handleDateConfirm = async () => {
     try {
-      SetstartProcessLoad(true);
       if (!date) {
         setMessage("กรุณาเลือกวันที่");
         setMessageType("error");
         return;
       }
+      SetstartProcessLoad(true);
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       const storedExpiry = sessionStorage.getItem("booking_date_expiry");
@@ -168,7 +174,7 @@ export default function MyCalendar() {
     } finally {
       setTimeout(() => {
         SetstartProcessLoad(false);
-      }, 500);
+      }, 1000);
     }
   };
 
@@ -215,27 +221,7 @@ export default function MyCalendar() {
           <p>{message}</p>
         </div>
       )}
-      <div className="sub-field-detail-container-calendar">
-        {fieldData !== "ไม่พบข้อมูล" ? (
-          <div className="detail-calendar">
-            <p className="sub-name">
-              <strong>สนาม</strong> {fieldData.sub_field_name}
-            </p>
-            <p className="price">
-              <strong>ราคา/ชม.</strong> {fieldData.price} บาท
-            </p>
-            <p className="type">
-              <strong>กีฬา</strong> {fieldData.sport_name}
-            </p>
-          </div>
-        ) : (
-          <p>{fieldData}</p>
-        )}
-      </div>
-      <div className="select-day">
-        <p>วันที่: {date ? formatDateToThai(date) : "ยังไม่ได้เลือกวันที่"}</p>
-        <div>**สามารถจองล่วงหน้าได้ไม่เกิน 7 วัน</div>
-      </div>
+
       <div className="calendar-wrapper" style={{ position: "relative" }}>
         {startProcessLoad && <div className="calendar-overlay" />}
         <Calendar
@@ -251,21 +237,48 @@ export default function MyCalendar() {
           }}
         />
       </div>
-      <div className="save-btn-calendar">
-        <button
-          onClick={handleDateConfirm}
-          style={{
-            cursor: startProcessLoad ? "not-allowed" : "pointer",
-          }}
-          disabled={startProcessLoad}
-        >
-          เลือกวันที่
-          {startProcessLoad && (
-            <div className="loading-overlay">
-              <div className="loading-spinner"></div>
+
+      <div className="sub-field-detail-container-calendar">
+        {fieldData !== "ไม่พบข้อมูล" ? (
+          <div className="forcast-calendar">
+            <p className="sub-name">
+              <strong>สนาม</strong> {fieldData.sub_field_name}
+            </p>
+            <p className="price">
+              <strong>ราคา/ชม.</strong> {formatPrice(fieldData.price)} บาท
+            </p>
+            <p className="type">
+              <strong>กีฬา</strong> {fieldData.sport_name}
+            </p>
+            <div className="select-day">
+              <p>
+                วันที่: {date ? formatDateToThai(date) : "ยังไม่ได้เลือกวันที่"}
+              </p>
+              <div>**สามารถจองล่วงหน้าได้ไม่เกิน 7 วัน</div>
             </div>
-          )}
-        </button>
+            <div className="save-btn-calendar">
+              <button
+                onClick={handleDateConfirm}
+                style={{
+                  cursor: startProcessLoad ? "not-allowed" : "pointer",
+                }}
+                disabled={startProcessLoad}
+              >
+                {startProcessLoad ? (
+                  <span className="dot-loading">
+                    <span className="dot one">●</span>
+                    <span className="dot two">●</span>
+                    <span className="dot three">●</span>
+                  </span>
+                ) : (
+                  "ยืนยันการเลือกวันที่"
+                )}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p>{fieldData}</p>
+        )}
       </div>
     </div>
   );

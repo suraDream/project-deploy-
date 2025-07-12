@@ -1,5 +1,3 @@
-const { route } = require("./register");
-
 module.exports = function (io) {
   const express = require("express");
   const pool = require("../db");
@@ -8,9 +6,9 @@ module.exports = function (io) {
   const { Resend } = require("resend");
   const resend = new Resend(process.env.Resend_API);
   const multer = require("multer");
-  const path = require("path");
-  const fs = require("fs");
-  const { error } = require("console");
+  // const path = require("path");
+  // const fs = require("fs");
+  // const { error } = require("console");
   const cron = require("node-cron");
   const authMiddleware = require("../middlewares/auth");
   const { CloudinaryStorage } = require("multer-storage-cloudinary");
@@ -18,8 +16,33 @@ module.exports = function (io) {
   const { DateTime } = require("luxon");
   const qrcode = require("qrcode");
   const promptpay = require("promptpay-qr");
-  
+  const rateLimit = require("express-rate-limit");
 
+  const LimiterBookingsRequest = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    max: 10, // จำกัดสูงสุด 10 ครั้งใน 10 นาที
+    standardHeaders: true,
+    legacyHeaders: false,
+
+    keyGenerator: (req) => {
+      return req.user?.user_id;
+    },
+
+    handler: (req, res, next, options) => {
+      console.warn("Rate limit Bookings:", {
+        // email: req.body?.email || req.user?.email,
+        ip: req.ip,
+        path: req.originalUrl,
+        time: DateTime.now()
+          .setZone("Asia/Bangkok")
+          .toFormat("dd/MM/yyyy HH:mm:ss"),
+      });
+      res.status(429).json({
+        code: "RATE_LIMIT",
+        message: "API LIMITED",
+      });
+    },
+  });
 
   const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
@@ -144,21 +167,33 @@ module.exports = function (io) {
               await resend.emails.send({
                 from: process.env.Sender_Email,
                 to: booking.email,
-                subject: "ใกล้ถึงเวลาจองสนามแล้ว!",
+                subject: "ใกล้ถึงเวลาจองสนามแล้ว",
                 html: `
-                    <div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-              <h2 style="color: #1f2937; margin-bottom: 16px;">แจ้งเตือนล่วงหน้า</h2>
-              <p style="font-size: 16px; color: #111827;">
-                คุณมีการจองสนาม <strong>${booking.field_name}</strong>
-              </p>
-              <p style="font-size: 16px; color: #111827;">
-                เวลาเริ่มต้น: <strong>${booking.start_time}</strong> <br/>
-                วันที่: <strong>${todayStr}</strong>
-              </p>
-              <p style="font-size: 14px; color: #6b7280;">
-                กรุณามาถึงสนามก่อนเวลาเพื่อเตรียมตัวล่วงหน้า
-              </p>
-            </div>
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); text-align:center;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #03045e; margin-bottom: 16px; text-align: center">แจ้งเตือนล่วงหน้า</h1>
+  <p style="font-size: 16px; text-align: center; color: #111827;">
+    คุณมีการจองสนาม <strong>${booking.field_name}</strong>
+  </p>
+  <p style="font-size: 16px; text-align: center; color: #111827;">
+    เวลาเริ่มต้น: <strong>${booking.start_time}</strong> <br />
+    วันที่: <strong>${todayStr}</strong>
+  </p>
+  <p style="font-size: 14px; color: #6b7280;text-align: center">
+    กรุณามาถึงสนามก่อนเวลาเพื่อเตรียมตัวล่วงหน้า
+  </p>
+    <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+  <p style="font-size: 12px; color: #9ca3af;text-align: center ">
+    หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+  </p>
+</div>
             `,
               });
 
@@ -167,21 +202,50 @@ module.exports = function (io) {
               await resend.emails.send({
                 from: process.env.Sender_Email,
                 to: booking.email,
-                subject: "ถึงเวลาจองสนามแล้ว!",
+                subject: "ถึงเวลาจองสนามแล้ว",
                 html: `
-                  <div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb;">
-          <h2 style="color: #1f2937; margin-bottom: 16px;">ถึงเวลาเริ่มต้นการจองแล้ว</h2>
-          <p style="font-size: 16px; color: #111827;">
-            สนามที่จอง: <strong>${booking.field_name}</strong>
-          </p>
-          <p style="font-size: 16px; color: #111827;">
-            เริ่มเวลา: <strong>${booking.start_time}</strong> <br/>
-            วันที่: <strong>${booking.start_date}</strong>
-          </p>
-          <p style="font-size: 14px; color: #6b7280;">
-            ขอให้คุณมีความสุขกับการใช้งานสนาม และขอขอบคุณที่ใช้บริการของเรา
-          </p>
-        </div>
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); text-align:center;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #03045e; margin-bottom: 16px;">ถึงเวลาเริ่มการจองแล้ว</h1>
+  <p style="font-size: 16px; color: #111827;">
+    สนามที่จอง: <strong>${booking.field_name}</strong>
+  </p>
+  <p style="font-size: 16px; color: #111827;">
+    เริ่มเวลา: <strong>${booking.start_time}</strong> <br />
+    วันที่: <strong>${booking.start_date}</strong>
+  </p>
+  <p style="font-size: 14px; color: #6b7280;">
+    ขอให้คุณมีความสุขกับการใช้งานสนาม และขอขอบคุณที่ใช้บริการของเรา
+  </p>
+    <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+  <p style="font-size: 12px; color: #9ca3af;">
+    หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+  </p>
+</div><div style="font-family: 'Kanit', sans-serif; max-width: 500px; text-align: center;margin: auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;">
+  <h1 style="color: #03045e; margin-bottom: 16px;">ถึงเวลาเริ่มการจองแล้ว</h1>
+  <p style="font-size: 16px; color: #111827;">
+    สนามที่จอง: <strong>${booking.field_name}</strong>
+  </p>
+  <p style="font-size: 16px; color: #111827;">
+    เริ่มเวลา: <strong>${booking.start_time}</strong> <br />
+    วันที่: <strong>${booking.start_date}</strong>
+  </p>
+  <p style="font-size: 14px; color: #6b7280;">
+    ขอให้คุณมีความสุขกับการใช้งานสนาม และขอขอบคุณที่ใช้บริการของเรา
+  </p>
+    <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+  <p style="font-size: 12px; color: #9ca3af;">
+    หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+  </p>
+</div>
             `,
               });
 
@@ -227,9 +291,34 @@ module.exports = function (io) {
               to: row.email,
               subject: "การจองสนามของคุณถูกยกเลิกอัตโนมัติ",
               html: `
-            <p>ระบบได้ยกเลิกการจองสนาม <strong>${row.field_name}</strong></p>
-            <p>เวลา: <strong>${row.start_time}</strong> วันที่ <strong>${row.start_date}</strong></p>
-            <p>เพราะไม่ได้แนบสลิปค่ามัดจำภายในเวลาที่กำหนด</p>
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); text-align:center;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #DC2525; margin-bottom: 16px;">การจองสนามของคุณถูกยกเลิกอัตโนมัติ</h1>
+  <p style="font-size: 16px; color: #DC2525;">
+   <strong> เนื่องจากไม่ได้แนบสลิปค่ามัดจำภายในเวลาที่กำหนดหลังจากได้รับการอนุมัติ</strong>
+  </p>
+  <p style="font-size: 16px; color: #111827;">
+    สนามที่จอง: <strong>${row.field_name}</strong>
+  </p>
+  <p style="font-size: 16px; color: #111827;">
+    เริ่มเวลา: <strong  style="color: #0f172a;">${row.start_time}</strong> <br />
+    วันที่: <strong style="color: #0f172a;">${row.start_date}</strong>
+  </p>
+  <p style="font-size: 14px; color: #6b7280;">
+   <strong> กรุณาแนบสลิปค่ามัดจำภายในเวลาที่กำหนด</strong>
+  </p>
+    <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+  <p style="font-size: 12px; color: #9ca3af;">
+    หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+  </p>
+</div>
           `,
             });
             console.log(` ส่งแจ้งเตือนการลบไปยัง ${row.email}`);
@@ -258,6 +347,7 @@ module.exports = function (io) {
   router.post(
     "/",
     authMiddleware,
+    LimiterBookingsRequest,
     upload.fields([{ name: "deposit_slip" }]),
     async (req, res) => {
       let depositSlip = null;
@@ -282,17 +372,6 @@ module.exports = function (io) {
           selectedFacilities,
           status,
         } = JSON.parse(req.body.data);
-
-        const timeNow = DateTime.now().setZone("Asia/Bangkok");
-        const timSubmit = `${startDate}T${startTime}`;
-        const timeSubmitDate = DateTime.fromISO(timSubmit, { zone: "Asia/Bangkok" });
-        console.log("timeNow", timeNow.toISO());
-        console.log("timeSubmitDate", timeSubmitDate.toISO());
-        if (timeSubmitDate < timeNow) { 
-          return res
-            .status(400)
-            .json({ success: false, message: "เวลาที่เลือกได้เริ่มไปแล้ว" });
-        }
 
         if (req.files["deposit_slip"]?.length > 0) {
           depositSlip = req.files["deposit_slip"][0].path;
@@ -323,7 +402,6 @@ module.exports = function (io) {
             .status(400)
             .json({ success: false, message: "Invalid startDate or endDate" });
         }
-       
 
         await client.query("BEGIN");
         const overlapResult = await client.query(
@@ -336,6 +414,20 @@ module.exports = function (io) {
             )`,
           [subFieldId, `${startDate} ${startTime}`, `${endDate} ${endTime}`]
         );
+
+        const timeNow = DateTime.now().setZone("Asia/Bangkok");
+        const timSubmit = `${startDate}T${startTime}`;
+        const timeSubmitDate = DateTime.fromISO(timSubmit, {
+          zone: "Asia/Bangkok",
+        });
+        console.log("timeNow", timeNow.toISO());
+        console.log("timeSubmitDate", timeSubmitDate.toISO());
+        if (timeSubmitDate < timeNow) {
+          return res.status(400).json({
+            success: false,
+            message: "ไม่สามารถเลือกเวลาที่ผ่านไปแล้วได้",
+          });
+        }
 
         if (overlapResult.rows.length > 0) {
           if (depositSlip) {
@@ -387,6 +479,75 @@ module.exports = function (io) {
             `INSERT INTO payment (booking_id, deposit_slip) VALUES ($1, $2) RETURNING payment_id`,
             [bookingId, depositSlip]
           );
+        }
+
+        if (bookingResult.rows.length > 0) {
+          const data = await client.query(
+            `SELECT 
+            uf.email AS field_owner_email,
+            f.field_name
+            FROM bookings b
+            JOIN field f ON b.field_id = f.field_id
+            JOIN users uf ON uf.user_id = f.user_id
+            WHERE b.booking_id = $1`,
+            [bookingId]
+          );
+
+          if (data.rows.length === 0) {
+            return res
+              .status(404)
+              .json({ success: false, message: "ไม่พบข้อมูลการจอง" });
+          }
+          const bookingData = data.rows[0];
+          console.log("bookingData:", bookingData);
+
+          if (!bookingData.field_owner_email) {
+            console.error("ไม่พบอีเมลเจ้าของสนาม");
+          } else {
+            try {
+              const emailRes = await resend.emails.send({
+                from: process.env.Sender_Email,
+                to: bookingData.field_owner_email,
+                subject: "มีการจองสนามของคุณ",
+                html: `
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); text-align:center;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #03045e; margin-bottom: 16px;">การจองสนาม</h1>
+
+  <p style="font-size: 16px; color: #111827;">
+    <strong style="color: #0f172a;"><h3>${bookingData.field_name}</h3></strong> มีรายการจองใหม่ 1 รายการ
+  </p>
+
+  <div style="margin: 20px 0;">
+    <a href="${process.env.FONT_END_URL}/login?redirect=/bookingDetail/${bookingId}" style="display: inline-block; background-color: #03045e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;
+                 width:160px;" target="_blank">
+      ตรวจสอบการจอง #${bookingId}
+    </a>
+  </div>
+
+  <p style="font-size: 14px; color: #6b7280;">
+    กรุณาตรวจสอบและอัปเดตสถานะการจองให้เสร็จสิ้น
+  </p>
+
+  <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+  <p style="font-size: 12px; color: #9ca3af;">
+    หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+  </p>
+</div>
+    `,
+              });
+              console.log("Email sent:", emailRes);
+            } catch (emailErr) {
+              console.error("Email send error:", emailErr);
+            }
+          }
         }
 
         await client.query("COMMIT");
@@ -799,35 +960,41 @@ LIMIT 1;
 
       try {
         let result;
+
         let qrDeposit = null;
 
-        const field = await pool.query(`SELECT field_id FROM bookings WHERE booking_id = $1`, [booking_id]);
+        const field = await pool.query(
+          `SELECT field_id FROM bookings WHERE booking_id = $1`,
+          [booking_id]
+        );
 
-        const filedData = await pool.query(`SELECT number_bank, name_bank,price_deposit FROM field WHERE field_id = $1`, [field.rows[0].field_id]);
-      
+        const filedData = await pool.query(
+          `SELECT number_bank, name_bank,price_deposit FROM field WHERE field_id = $1`,
+          [field.rows[0].field_id]
+        );
+
+        // ✅ อัปเดตสถานะ และ updated_at ถ้า approved
         if (booking_status === "approved") {
           result = await pool.query(
             "UPDATE bookings SET status = $1, updated_at = $2 WHERE booking_id = $3 RETURNING *",
             [booking_status, updatedAtThai, booking_id]
-       
           );
 
-             if( filedData.rows[0].price_deposit > 0) {
-              const qrCodeData = promptpay(filedData.rows[0].number_bank, {
-    amount: filedData.rows[0].price_deposit,
-});
-const qrBase64 = await qrcode.toDataURL(qrCodeData);
+          // if (filedData.rows[0].price_deposit > 0) {
+          //   const qrCodeData = promptpay(filedData.rows[0].number_bank, {
+          //     amount: filedData.rows[0].price_deposit,
+          //   });
+          //   const qrBase64 = await qrcode.toDataURL(qrCodeData);
 
-// upload ไป Cloudinary
-const uploadRes = await cloudinary.uploader.upload(qrBase64, {
-  folder: "qr_codes",
-  public_id: `qr_${booking_id}_${Date.now()}`,
-  overwrite: true,
-  resource_type: "image",
-});
-qrDeposit = uploadRes.secure_url; // ใช้ url นี้ใน <img src="...">
-            }
-
+          //   // upload ไป Cloudinary
+          //   const uploadRes = await cloudinary.uploader.upload(qrBase64, {
+          //     folder: "qr_codes",
+          //     public_id: `qr_${booking_id}_${Date.now()}`,
+          //     overwrite: true,
+          //     resource_type: "image",
+          //   });
+          //   qrDeposit = uploadRes.secure_url; // ใช้ url นี้ใน <img src="...">
+          // }
         } else {
           result = await pool.query(
             "UPDATE bookings SET status = $1 WHERE booking_id = $2 RETURNING *",
@@ -859,99 +1026,111 @@ qrDeposit = uploadRes.secure_url; // ใช้ url นี้ใน <img src="...
           let subject = "";
           let message = "";
 
-          if (booking_status === "approved" && filedData.rows[0].price_deposit > 0) {
+          if (
+            booking_status === "approved" &&
+            filedData.rows[0].price_deposit > 0
+          ) {
             subject = `การจองสนาม ${userInfo.field_name} ได้รับการอนุมัติแล้ว`;
             message = `
-         <div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-  <h2 style="color: #1d4ed8; margin-bottom: 16px;">การจองของคุณได้รับการอนุมัติแล้ว!</h2>
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #347433; margin-bottom: 16px; text-align: center;">การจองของคุณได้รับการอนุมัติแล้ว</h1>
 
-  <p style="font-size: 16px; color: #111827;">
-    การจองสนาม <strong style="color: #0f172a;">${userInfo.field_name}</strong> ของคุณได้รับการอนุมัติแล้ว
+  <p style="font-size: 16px; color: #111827; text-align: center;">
+    การจองสนาม <strong>${userInfo.field_name}</strong> ของคุณได้รับการอนุมัติแล้ว
   </p>
 
-  <div style="margin: 20px 0;">
-    <a
-      href="${process.env.FONT_END_URL}/login?redirect=/bookingDetail/${booking_id}"
-      style="display: inline-block; background-color: #1d4ed8; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;"
-      target="_blank"
-    >
+  <div style="margin: 20px auto;">
+    <a href="${process.env.FONT_END_URL}/login?redirect=/bookingDetail/${booking_id}" style=" background-color: #03045e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; text-align: center;  justify-content: center;  display: flex; width: 200px; margin: 10px auto; 
+  align-items: center;
+"target="_blank">
       ดูรายละเอียดการจอง #${booking_id}
     </a>
   </div>
 
-  <p style="font-weight: bold;">ยอดที่ต้องชำระ: ฿${filedData.rows[0].price_deposit}</p>
-
-    <div style="margin: 20px 0; text-align: center;">
-      <p>สแกนเพื่อชำระเงิน:</p>
-      <img src="${qrDeposit}" alt="QR Code" style="width: 200px; height: 200px;" />
-    </div>
-
-  <p style="font-size: 14px; color: #6b7280;">
+  <p style="font-size: 14px; color: #6b7280; text-align: center">
     กรุณาแนบสลิปมัดจำ <strong>(ถ้ามี)</strong> ภายใน <strong>1 ชั่วโมง</strong> หลังจากได้รับการอนุมัติ มิฉะนั้นระบบจะยกเลิกการจองโดยอัตโนมัติ
   </p>
 
   <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
 
-  <p style="font-size: 12px; color: #9ca3af;">
+  <p style="font-size: 12px; color: #9ca3af;text-align: center">
     หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
   </p>
 </div>
-
         `;
-           } else if (booking_status === "approved" && filedData.rows[0].price_deposit == 0) {
+          } else if (
+            booking_status === "approved" &&
+            filedData.rows[0].price_deposit == 0
+          ) {
             subject = `การจองสนาม ${userInfo.field_name} ได้รับการอนุมัติแล้ว`;
             message = `
-         <div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-  <h2 style="color: #1d4ed8; margin-bottom: 16px;">การจองของคุณได้รับการอนุมัติแล้ว!</h2>
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #347433; margin-bottom: 16px; text-align: center;">การจองของคุณได้รับการอนุมัติแล้ว</h1>
 
-  <p style="font-size: 16px; color: #111827;">
-    การจองสนาม <strong style="color: #0f172a;">${userInfo.field_name}</strong> ของคุณได้รับการอนุมัติแล้ว
+  <p style="font-size: 16px; color: #111827; text-align: center;">
+    การจองสนาม <strong>${userInfo.field_name}</strong> ของคุณได้รับการอนุมัติแล้ว
   </p>
 
-  <div style="margin: 20px 0;">
-    <a
-      href="${process.env.FONT_END_URL}/login?redirect=/bookingDetail/${booking_id}"
-      style="display: inline-block; background-color: #1d4ed8; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;"
-      target="_blank"
-    >
+  <div style="margin: 20px auto;">
+    <a href="${process.env.FONT_END_URL}/login?redirect=/bookingDetail/${booking_id}" style="background-color: #03045e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; text-align: center;  justify-content: center;  display: flex; width: 200px; margin: 10px auto; 
+  align-items: center;
+"target="_blank">
       ดูรายละเอียดการจอง #${booking_id}
     </a>
   </div>
 
-  <p style="font-size: 14px; color: #6b7280;">
+  <p style="font-size: 14px; color: #6b7280; text-align: center">
     กรุณาแนบสลิปมัดจำ <strong>(ถ้ามี)</strong> ภายใน <strong>1 ชั่วโมง</strong> หลังจากได้รับการอนุมัติ มิฉะนั้นระบบจะยกเลิกการจองโดยอัตโนมัติ
   </p>
 
   <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
 
-  <p style="font-size: 12px; color: #9ca3af;">
+  <p style="font-size: 12px; color: #9ca3af;text-align: center">
     หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
   </p>
 </div>
-
         `;
           } else if (booking_status === "rejected") {
             subject = `การจองสนาม ${userInfo.field_name} ไม่ได้รับการอนุมัติ`;
             message = `
-   <div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-  <h2 style="color: #1d4ed8; margin-bottom: 16px;">การจองของคุณไม่ได้รับการอนุมัติ!</h2>
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #DC2525; margin-bottom: 16px; text-align: center;">การจองของคุณไม่ได้รับการอนุมัติ</h1>
 
-  <p style="font-size: 16px; color: #111827;">
-    การจองสนาม <strong style="color: #0f172a;">${userInfo.field_name}</strong> ของคุณไม่ได้รับการอนุมัติ
+  <p style="font-size: 16px; color: #111827; text-align: center;">
+    การจองสนาม <strong>${userInfo.field_name}</strong> ของคุณไม่ได้รับการอนุมัติ
   </p>
 
-  <div style="margin: 20px 0;">
-    <a
-      href="${process.env.FONT_END_URL}/login?redirect=/bookingDetail/${booking_id}"
-      style="display: inline-block; background-color: #1d4ed8; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;"
-      target="_blank"
-    >
+  <div style="margin: 20px auto;">
+    <a href="${process.env.FONT_END_URL}/login?redirect=/bookingDetail/${booking_id}" style=" background-color: #03045e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold; text-align: center;  justify-content: center;  display: flex; width: 200px; margin: 10px auto; 
+  align-items: center;
+"target="_blank">
       ดูรายละเอียดการจอง #${booking_id}
     </a>
   </div>
   <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
 
-  <p style="font-size: 12px; color: #9ca3af;">
+  <p style="font-size: 12px; color: #9ca3af;text-align: center">
     หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
   </p>
 </div>
@@ -966,13 +1145,11 @@ qrDeposit = uploadRes.secure_url; // ใช้ url นี้ใน <img src="...
               html: message,
             });
 
-            console.log(
-              `📧 ส่งอีเมลแจ้งผลการอัปเดตสถานะไปยัง ${userInfo.email}`
-            );
+            console.log(`ส่งอีเมลแจ้งผลการอัปเดตสถานะไปยัง ${userInfo.email}`);
           }
         }
 
-        // ✅ ส่ง socket event แจ้งหน้าเว็บ
+        // ส่ง socket event แจ้งหน้าเว็บ
         req.io.emit("slot_booked", {
           bookingId: booking_id,
         });
@@ -992,210 +1169,213 @@ qrDeposit = uploadRes.secure_url; // ใช้ url นี้ใน <img src="...
     }
   );
 
-router.delete(
-  "/cancel-bookings/:booking_id",
-  authMiddleware,
-  async (req, res) => {
-    const { booking_id } = req.params;
-    const { cancel_time } = req.body;
+  router.delete(
+    "/cancel-bookings/:booking_id",
+    authMiddleware,
+    async (req, res) => {
+      const { booking_id } = req.params;
+      const { cancel_time } = req.body;
 
-    try {
-      // ✅ ตรวจ cancel_time
-      if (!cancel_time) {
-        return res.status(400).json({
-          status: 0,
-          message: "Missing cancel_time in request body.",
-        });
-      }
+      try {
+        // ✅ ตรวจ cancel_time
+        if (!cancel_time) {
+          return res.status(400).json({
+            status: 0,
+            message: "Missing cancel_time in request body.",
+          });
+        }
 
-      const now = DateTime.fromISO(cancel_time, { zone: "Asia/Bangkok" });
-      // 🔧 เปลี่ยนจาก isNaN(now.getTime()) เป็น !now.isValid
-      if (!now.isValid) {
-        return res.status(400).json({
-          status: 0,
-          message: "Invalid cancel_time format. Must be ISO string.",
-        });
-      }
+        const now = DateTime.fromISO(cancel_time, { zone: "Asia/Bangkok" });
+        // 🔧 เปลี่ยนจาก isNaN(now.getTime()) เป็น !now.isValid
+        if (!now.isValid) {
+          return res.status(400).json({
+            status: 0,
+            message: "Invalid cancel_time format. Must be ISO string.",
+          });
+        }
 
-      console.log(` ยกเลิก booking_id = ${booking_id}`);
-      console.log(` เวลาที่กดปุ่ม cancel: ${now.toISO()}`);
+        console.log(` ยกเลิก booking_id = ${booking_id}`);
+        console.log(` เวลาที่กดปุ่ม cancel: ${now.toISO()}`);
 
-      // ✅ ดึงข้อมูลการจอง
-      const fieldDataResult = await pool.query(
-        `
+        // ✅ ดึงข้อมูลการจอง
+        const fieldDataResult = await pool.query(
+          `
         SELECT f.cancel_hours, b.start_date, b.start_time, f.field_name
         FROM bookings b
         JOIN field f ON b.field_id = f.field_id
         WHERE b.booking_id = $1
       `,
-        [booking_id]
-      );
-
-      if (fieldDataResult.rowCount === 0) {
-        return res.status(404).json({
-          status: 0,
-          message: `Booking ID ${booking_id} not found.`,
-          timestamp: now.toISO(),
-        });
-      }
-
-      const { cancel_hours, start_date, start_time, field_name } =
-        fieldDataResult.rows[0];
-
-      // ✅ ตรวจและแปลง start_date
-      let startDateStr;
-      try {
-        const startDateObj = new Date(start_date);
-        if (isNaN(startDateObj.getTime()))
-          throw new Error("Invalid start_date");
-        const yyyy = startDateObj.getFullYear();
-        const mm = String(startDateObj.getMonth() + 1).padStart(2, "0");
-        const dd = String(startDateObj.getDate()).padStart(2, "0");
-        startDateStr = `${yyyy}-${mm}-${dd}`;
-      } catch (err) {
-        console.error(" start_date is invalid:", start_date);
-        return res.status(500).json({
-          status: 0,
-          message: "Invalid start_date format from database.",
-          booking_id,
-        });
-      }
-
-      // ✅ ตรวจและจัดการ start_time (รับ HH:mm หรือ HH:mm:ss)
-      if (
-        !start_time ||
-        typeof start_time !== "string" ||
-        !/^\d{2}:\d{2}(:\d{2})?$/.test(start_time)
-      ) {
-        console.error(" Invalid start_time:", start_time);
-        return res.status(500).json({
-          status: 0,
-          message: "Invalid start_time format from database.",
-          booking_id,
-        });
-      }
-
-      const trimmedStartTime = start_time.slice(0, 5); // เหลือแค่ HH:mm
-
-      // 🔧 รวมวันเวลา และแปลงเป็นเวลาประเทศไทย
-      const startDateTime = DateTime.fromISO(
-        `${startDateStr}T${trimmedStartTime}:00`,
-        { zone: "Asia/Bangkok" }
-      );
-      // 🔧 เปลี่ยนจาก isNaN(startDateTime.getTime()) เป็น !startDateTime.isValid
-      if (!startDateTime.isValid) {
-        console.error(" Invalid startDateTime:", `${startDateStr}T${trimmedStartTime}:00`);
-        return res.status(500).json({
-          status: 0,
-          message: "Cannot parse combined start date/time.",
-          booking_id,
-        });
-      }
-      
-      console.log("startDateStr:", startDateStr); // ควรเป็น 2025-06-02
-      console.log("start_time:", start_time); // ควรเป็น 19:00:00
-
-      // ถ้าไม่มีเวลายกเลิก → ยกเลิกได้ทันที
-      if (cancel_hours === null) {
-        const paymentResult = await pool.query(
-          `SELECT deposit_slip, total_slip FROM payment WHERE booking_id = $1`,
           [booking_id]
         );
 
-        if (paymentResult.rowCount > 0) {
-          const { deposit_slip, total_slip } = paymentResult.rows[0];
-
-          // ลบ deposit_slip ถ้ามี
-          if (deposit_slip) await deleteCloudinaryFile(deposit_slip);
-          if (total_slip) await deleteCloudinaryFile(total_slip);
-
-          // ลบ row จาก payment
-          await pool.query(`DELETE FROM payment WHERE booking_id = $1`, [
-            booking_id,
-          ]);
-        }
-        await pool.query(`DELETE FROM booking_fac WHERE booking_id = $1`, [
-          booking_id,
-        ]);
-        await pool.query(`DELETE FROM bookings WHERE booking_id = $1`, [
-          booking_id,
-        ]);
-
-        return res.status(200).json({
-          status: 1,
-          message: `การจองสนาม ${field_name} เวลา ${trimmedStartTime} วันที่ ${startDateStr} ถูกยกเลิกเรียบร้อย`,
-          cancelDeadline: null,
-          now: now.toISO(),
-        });
-      }
-
-      // ✅ คำนวณเส้นตายการยกเลิก
-      const cancelDeadline = startDateTime.minus({ hours: cancel_hours });
-
-      console.log("Frontend ส่งมา (cancel_time):", now.toISO());
-      console.log("เวลาเริ่ม:", startDateTime.toISO());
-      console.log("เส้นตายยกเลิก:", cancelDeadline.toISO());
-
-      // ✅ เปรียบเทียบเวลา
-      if (now < cancelDeadline) {
-        const paymentResult = await pool.query(
-          `SELECT deposit_slip, total_slip FROM payment WHERE booking_id = $1`,
-          [booking_id]
-        );
-
-        if (paymentResult.rowCount > 0) {
-          const { deposit_slip, total_slip } = paymentResult.rows[0];
-
-          if (deposit_slip) await deleteCloudinaryFile(deposit_slip);
-          if (total_slip) await deleteCloudinaryFile(total_slip);
-
-          // ลบ row จาก payment
-          await pool.query(`DELETE FROM payment WHERE booking_id = $1`, [
-            booking_id,
-          ]);
-        }
-        await pool.query(`DELETE FROM booking_fac WHERE booking_id = $1`, [
-          booking_id,
-        ]);
-        await pool.query(`DELETE FROM bookings WHERE booking_id = $1`, [
-          booking_id,
-        ]);
-
-        if (req.io) {
-          req.io.emit("slot_booked", {
-            bookingId: booking_id,
+        if (fieldDataResult.rowCount === 0) {
+          return res.status(404).json({
+            status: 0,
+            message: `Booking ID ${booking_id} not found.`,
+            timestamp: now.toISO(),
           });
         }
 
-        return res.status(200).json({
-          status: 1,
-          message: `การจองสนาม ${field_name} เวลา ${trimmedStartTime} วันที่ ${startDateStr} ถูกยกเลิกเรียบร้อย`,
-          cancelDeadline: cancelDeadline.toISO(),
-          now: now.toISO(),
-        });
-      } else {
-        return res.status(400).json({
+        const { cancel_hours, start_date, start_time, field_name } =
+          fieldDataResult.rows[0];
+
+        // ✅ ตรวจและแปลง start_date
+        let startDateStr;
+        try {
+          const startDateObj = new Date(start_date);
+          if (isNaN(startDateObj.getTime()))
+            throw new Error("Invalid start_date");
+          const yyyy = startDateObj.getFullYear();
+          const mm = String(startDateObj.getMonth() + 1).padStart(2, "0");
+          const dd = String(startDateObj.getDate()).padStart(2, "0");
+          startDateStr = `${yyyy}-${mm}-${dd}`;
+        } catch (err) {
+          console.error(" start_date is invalid:", start_date);
+          return res.status(500).json({
+            status: 0,
+            message: "Invalid start_date format from database.",
+            booking_id,
+          });
+        }
+
+        // ✅ ตรวจและจัดการ start_time (รับ HH:mm หรือ HH:mm:ss)
+        if (
+          !start_time ||
+          typeof start_time !== "string" ||
+          !/^\d{2}:\d{2}(:\d{2})?$/.test(start_time)
+        ) {
+          console.error(" Invalid start_time:", start_time);
+          return res.status(500).json({
+            status: 0,
+            message: "Invalid start_time format from database.",
+            booking_id,
+          });
+        }
+
+        const trimmedStartTime = start_time.slice(0, 5); // เหลือแค่ HH:mm
+
+        // 🔧 รวมวันเวลา และแปลงเป็นเวลาประเทศไทย
+        const startDateTime = DateTime.fromISO(
+          `${startDateStr}T${trimmedStartTime}:00`,
+          { zone: "Asia/Bangkok" }
+        );
+        // 🔧 เปลี่ยนจาก isNaN(startDateTime.getTime()) เป็น !startDateTime.isValid
+        if (!startDateTime.isValid) {
+          console.error(
+            " Invalid startDateTime:",
+            `${startDateStr}T${trimmedStartTime}:00`
+          );
+          return res.status(500).json({
+            status: 0,
+            message: "Cannot parse combined start date/time.",
+            booking_id,
+          });
+        }
+
+        console.log("startDateStr:", startDateStr); // ควรเป็น 2025-06-02
+        console.log("start_time:", start_time); // ควรเป็น 19:00:00
+
+        // ถ้าไม่มีเวลายกเลิก → ยกเลิกได้ทันที
+        if (cancel_hours === null) {
+          const paymentResult = await pool.query(
+            `SELECT deposit_slip, total_slip FROM payment WHERE booking_id = $1`,
+            [booking_id]
+          );
+
+          if (paymentResult.rowCount > 0) {
+            const { deposit_slip, total_slip } = paymentResult.rows[0];
+
+            // ลบ deposit_slip ถ้ามี
+            if (deposit_slip) await deleteCloudinaryFile(deposit_slip);
+            if (total_slip) await deleteCloudinaryFile(total_slip);
+
+            // ลบ row จาก payment
+            await pool.query(`DELETE FROM payment WHERE booking_id = $1`, [
+              booking_id,
+            ]);
+          }
+          await pool.query(`DELETE FROM booking_fac WHERE booking_id = $1`, [
+            booking_id,
+          ]);
+          await pool.query(`DELETE FROM bookings WHERE booking_id = $1`, [
+            booking_id,
+          ]);
+
+          return res.status(200).json({
+            status: 1,
+            message: `การจองสนาม ${field_name} เวลา ${trimmedStartTime} วันที่ ${startDateStr} ถูกยกเลิกเรียบร้อย`,
+            cancelDeadline: null,
+            now: now.toISO(),
+          });
+        }
+
+        // ✅ คำนวณเส้นตายการยกเลิก
+        const cancelDeadline = startDateTime.minus({ hours: cancel_hours });
+
+        console.log("Frontend ส่งมา (cancel_time):", now.toISO());
+        console.log("เวลาเริ่ม:", startDateTime.toISO());
+        console.log("เส้นตายยกเลิก:", cancelDeadline.toISO());
+
+        // ✅ เปรียบเทียบเวลา
+        if (now < cancelDeadline) {
+          const paymentResult = await pool.query(
+            `SELECT deposit_slip, total_slip FROM payment WHERE booking_id = $1`,
+            [booking_id]
+          );
+
+          if (paymentResult.rowCount > 0) {
+            const { deposit_slip, total_slip } = paymentResult.rows[0];
+
+            if (deposit_slip) await deleteCloudinaryFile(deposit_slip);
+            if (total_slip) await deleteCloudinaryFile(total_slip);
+
+            // ลบ row จาก payment
+            await pool.query(`DELETE FROM payment WHERE booking_id = $1`, [
+              booking_id,
+            ]);
+          }
+          await pool.query(`DELETE FROM booking_fac WHERE booking_id = $1`, [
+            booking_id,
+          ]);
+          await pool.query(`DELETE FROM bookings WHERE booking_id = $1`, [
+            booking_id,
+          ]);
+
+          if (req.io) {
+            req.io.emit("slot_booked", {
+              bookingId: booking_id,
+            });
+          }
+
+          return res.status(200).json({
+            status: 1,
+            message: `การจองสนาม ${field_name} เวลา ${trimmedStartTime} วันที่ ${startDateStr} ถูกยกเลิกเรียบร้อย`,
+            cancelDeadline: cancelDeadline.toISO(),
+            now: now.toISO(),
+          });
+        } else {
+          return res.status(400).json({
+            status: 0,
+            message: `ไม่สามารถยกเลิกได้ เลยเวลาการยกเลิกภายใน ${cancel_hours} ชม. ก่อนจะเริ่ม`,
+            field: field_name,
+            startDateTime: startDateTime.toISO(),
+            cancelDeadline: cancelDeadline.toISO(),
+            now: now.toISO(),
+          });
+        }
+      } catch (error) {
+        console.error(" Error while canceling booking:", error);
+
+        return res.status(500).json({
           status: 0,
-          message: `ไม่สามารถยกเลิกได้ เลยเวลาการยกเลิกภายใน ${cancel_hours} ชม. ก่อนจะเริ่ม`,
-          field: field_name,
-          startDateTime: startDateTime.toISO(),
-          cancelDeadline: cancelDeadline.toISO(),
-          now: now.toISO(),
+          message: "Internal Server Error",
+          error: error.message,
+          booking_id,
+          timestamp: new Date().toISOString(),
         });
       }
-    } catch (error) {
-      console.error(" Error while canceling booking:", error);
-
-      return res.status(500).json({
-        status: 0,
-        message: "Internal Server Error",
-        error: error.message,
-        booking_id,
-        timestamp: new Date().toISOString(),
-      });
     }
-  }
-);
+  );
 
   router.post(
     "/upload-slip/:booking_id",
@@ -1332,17 +1512,25 @@ router.delete(
                 from: process.env.Sender_Email,
                 to: bookingData.field_owner_email,
                 subject: "ตรวจสอบสลิปและอัปเดตสถานะการจองให้เสร็จสิ้น",
-                html: ` <div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb; border-radius: 8px; border: 1px solid #e5e7eb;">
-      <h2 style="color: #1d4ed8; margin-bottom: 16px;">มีการอัปโหลดสลิปใหม่!</h2>
+                html: `<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); text-align:center;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+      <h1 style="color: #03045e; margin-bottom: 16px;">มีการอัปโหลดสลิปใหม่</h1>
 
       <p style="font-size: 16px; color: #111827;">
-        สำหรับสนาม <strong style="color: #0f172a;">${bookingData.field_name}</strong> ระบบได้รับสลิปใหม่แล้ว
+       <strong style="color: #0f172a;">${bookingData.field_name}</strong> ได้รับสลิปใหม่
       </p>
 
       <div style="margin: 20px 0;">
         <a
           href="${process.env.FONT_END_URL}/login?redirect=/bookingDetail/${bookingId}"
-          style="display: inline-block; background-color: #1d4ed8; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;"
+          style="display: inline-block; background-color: #03045e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 6px; font-weight: bold;
+                 width:160px;"
           target="_blank"
         >
           ตรวจสอบการจอง #${bookingId}
@@ -1388,61 +1576,66 @@ router.delete(
     }
   );
 
-  router.post("/gen-qr",async(req,res)=>{
-  const {bookingId,amount} = req.body;
-  if (!bookingId || !amount) {
-    return res.status(400).json({ success: false, message: "Missing bookingId or amount" });
-  }
-  try {
-   const fieldIdResult = await pool.query(`SELECT field_id FROM bookings WHERE booking_id = $1`, [bookingId]);
-
-if (fieldIdResult.rowCount === 0) {
-  return res.status(404).json({ success: false, message: "Booking not found" });
-}
-
-const fieldId = fieldIdResult.rows[0].field_id;
-
-    const fieldData = await pool.query(`SELECT number_bank FROM field WHERE field_id = $1`, [fieldId]);
-    if (fieldData.rowCount === 0) {
-      return res.status(404).json({ success: false, message: "Field not found" });
+  router.post("/gen-qr", async (req, res) => {
+    const { bookingId, amount } = req.body;
+    if (!bookingId || !amount) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Missing bookingId or amount" });
     }
+    try {
+      const fieldIdResult = await pool.query(
+        `SELECT field_id FROM bookings WHERE booking_id = $1`,
+        [bookingId]
+      );
 
-    const number_bank = fieldData.rows[0].number_bank;
+      if (fieldIdResult.rowCount === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Booking not found" });
+      }
 
-    if (!number_bank) {
-      return res.status(400).json({ success: false, message: "Missing bank number" });
+      const fieldId = fieldIdResult.rows[0].field_id;
+
+      const fieldData = await pool.query(
+        `SELECT number_bank FROM field WHERE field_id = $1`,
+        [fieldId]
+      );
+      if (fieldData.rowCount === 0) {
+        return res
+          .status(404)
+          .json({ success: false, message: "Field not found" });
+      }
+
+      const number_bank = fieldData.rows[0].number_bank;
+
+      if (!number_bank) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Missing bank number" });
+      }
+
+      const qrCodeData = promptpay(number_bank, {
+        amount: Number(amount),
+      });
+
+      const qr = await qrcode.toDataURL(qrCodeData);
+      console.log("QR Code generated:", qr);
+
+      // Optional: Save QR code to database or perform other actions here
+
+      // Respond with the QR code
+
+      res.status(200).json({
+        status: true,
+        message: "QR code generated successfully",
+        qrCode: qr,
+      });
+    } catch (error) {
+      console.error("Error generating QR code:", error);
+      return res.status(500).json({ status: false, message: "Server error" });
     }
-
-     const qrCodeData = promptpay("6791-90881-5", {
-    amount: Number(amount),
-});
-
-
-
-const qr = await qrcode.toDataURL(qrCodeData);
-console.log("QR Code generated:", qr);
-
-  // Optional: Save QR code to database or perform other actions here
-
-  // Respond with the QR code
-
-
-res.status(200).json({
-  status: true,
-  message: "QR code generated successfully",       
-  qrCode: qr         
-});
-
-  }
-  catch (error) {
-    console.error("Error generating QR code:", error);
-    return res.status(500).json({ status: false, message: "Server error" });
-  }
-})
-
-
-  
+  });
 
   return router;
 };
-

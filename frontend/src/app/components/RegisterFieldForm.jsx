@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import "@/app/css/registerFieldForm.css";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function RegisterFieldForm() {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -18,6 +19,7 @@ export default function RegisterFieldForm() {
   const { user, isLoading } = useAuth();
   const [dataLoading, setDataLoading] = useState(true);
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
+  usePreventLeave(startProcessLoad);
 
   useEffect(() => {
     if (isLoading) return;
@@ -53,8 +55,12 @@ export default function RegisterFieldForm() {
   useEffect(() => {
     const fetchSports = async () => {
       try {
+        const token = localStorage.getItem("auth_mobile_token");
         const res = await fetch(`${API_URL}/sports_types`, {
           credentials: "include",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
 
         const data = await res.json();
@@ -82,8 +88,13 @@ export default function RegisterFieldForm() {
   useEffect(() => {
     const fetchFacilities = async () => {
       try {
+        const token = localStorage.getItem("auth_mobile_token");
+
         const res = await fetch(`${API_URL}/facilities`, {
           credentials: "include",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
         });
 
         const data = await res.json();
@@ -249,7 +260,10 @@ export default function RegisterFieldForm() {
 
       const res = await fetch(`${API_URL}/facilities/add`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         credentials: "include",
         body: JSON.stringify({ fac_name: newFacility }),
       });
@@ -281,7 +295,17 @@ export default function RegisterFieldForm() {
   const addSubField = () => {
     setSubFields([
       ...subFields,
-      { name: "", price: "", sport_id: "", user_id: user.user_id, addOns: [], wide_field: "", length_field: "", players_per_team: "", field_surface: "" },
+      {
+        name: "",
+        price: "",
+        sport_id: "",
+        user_id: user.user_id,
+        addOns: [],
+        wid_field: "",
+        length_field: "",
+        players_per_team: "",
+        field_surface: "",
+      },
     ]);
   };
 
@@ -363,7 +387,15 @@ export default function RegisterFieldForm() {
     }
 
     for (let sub of subFields) {
-      if (!sub.name || !sub.price || !sub.sport_id) {
+      if (
+        !sub.name ||
+        // !sub.price ||
+        !sub.sport_id ||
+        !sub.players_per_team ||
+        !sub.wid_field ||
+        !sub.length_field ||
+        !sub.field_surface
+      ) {
         setMessage("กรุณากรอกข้อมูลให้ครบถ้วนสำหรับสนามย่อยทุกสนาม");
         setMessageType("error");
         return;
@@ -421,9 +453,14 @@ export default function RegisterFieldForm() {
     SetstartProcessLoad(true);
     try {
       await new Promise((resolve) => setTimeout(resolve, 300));
+      const token = localStorage.getItem("auth_mobile_token");
+
       const res = await fetch(`${API_URL}/field/register`, {
         method: "POST",
         credentials: "include",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: formData,
       });
 
@@ -524,12 +561,29 @@ export default function RegisterFieldForm() {
             />
           </div>
           <div className="input-group-register-field">
-            <label>พิกัด GPS:(เช่น16.05xxxxx, 103.65xxxxx)</label> <a href="https://support.google.com/maps/answer/18539?hl=th&co=GENIE.Platform%3DiOS&oco=0/" target="_blank" rel="noopener noreferrer">วิธีเอาละติจูดและลองจิจูดใน Google Maps</a>    <p></p><a href="https://maps.google.com/" target="_blank" rel="noopener noreferrer">Google Maps</a>
+            <label>พิกัด GPS:(เช่น16.05xxxxx, 103.65xxxxx)</label>{" "}
+            <div className="exapmle-gps">
+              <a
+                href="https://support.google.com/maps/answer/18539?hl=th&co=GENIE.Platform%3DiOS&oco=0/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                วิธีเอาละติจูดและลองจิจูดใน Google Maps
+              </a>
+              <br />
+              <a
+                href="https://maps.google.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Google Maps
+              </a>
+            </div>
             <input
               type="text"
               maxLength={100}
               name="gps_location"
-              placeholder="ที่อยู่ใน Map"
+              placeholder="พิกัด"
               value={fieldData.gps_location}
               onChange={handleFieldChange}
             />
@@ -618,31 +672,24 @@ export default function RegisterFieldForm() {
               <div key={subIndex}>
                 {/*Input กรอกชื่อสนามย่อย */}
                 <div className="input-group-register-field">
+                  <label htmlFor="">ชื่อสนามย่อย</label>
                   <input
                     type="text"
-                    maxLength={100}
-                    placeholder="ชื่อสนามย่อย (เช่น สนาม 1,2)"
+                    maxLength={50}
+                    placeholder="สนาม 1,2"
                     value={sub.name}
                     onChange={(e) =>
                       updateSubField(subIndex, "name", e.target.value)
                     }
                   />
                 </div>
-                <p>จำนวนผู้เล่นต่อฝั่ง</p>
-                <input type="text" placeholder="เช่น 5คน กรอกแค่ 5 มา" value={sub.players_per_team}  onChange={(e)=> updateSubField(subIndex,"players_per_team",e.target.value)} /> <label htmlFor="">คน</label>
-                <div>
-                  <p>ความกว้างของสนาม</p>
-                  <input type="text" placeholder='ความกว้างของสนาม (เมตร)' value={sub.wide_field} onChange={(e) => updateSubField(subIndex, "wide_field", e.target.value)} />
-                  <p>ความยาวของสนาม</p>
-                  <input type="text" placeholder='ความยาวของสนาม (เมตร)' value={sub.length_field} onChange={(e) => updateSubField(subIndex, "length_field", e.target.value)} />
-                  <p>พื้นสนาม</p>
-                  <input type="text" placeholder="เช่น หญ้าเทียม,หญ้าจริง "  value={sub.field_surface} onChange={(e)=>updateSubField(subIndex,"field_surface",e.target.value)}/>
-                </div>
                 {/*Input กรอกราคา */}
                 <div className="input-group-register-field">
+                  <label htmlFor="">ราคา/ชั่วโมง</label>
+
                   <input
                     type="number"
-                    placeholder="ราคา/ชั่วโมง"
+                    placeholder="500 , 1000"
                     value={sub.price}
                     onChange={(e) => {
                       const value = Math.abs(e.target.value);
@@ -650,9 +697,10 @@ export default function RegisterFieldForm() {
                     }}
                   />
                 </div>
-
                 {/*Dropdown เลือกประเภทกีฬา */}
                 <div className="input-group-register-field">
+                  <label htmlFor="">ประเภทกีฬา</label>
+
                   <select
                     value={sub.sport_id}
                     onChange={(e) =>
@@ -667,7 +715,54 @@ export default function RegisterFieldForm() {
                     ))}
                   </select>
                 </div>
-
+                <div className="input-group-register-field">
+                  <label htmlFor="">จำนวนผู้เล่นต่อฝั่ง</label>
+                  <input
+                    type="number"
+                    placeholder="5,7"
+                    value={sub.players_per_team}
+                    onChange={(e) => {
+                      const value = Math.abs(e.target.value);
+                      updateSubField(subIndex, "players_per_team", value);
+                    }}
+                  />{" "}
+                </div>
+                <div className="input-group-register-field">
+                  <label>ความกว้างของสนาม</label>
+                  <input
+                    type="number"
+                    placeholder="(เมตร)"
+                    value={sub.wid_field}
+                    onChange={(e) => {
+                      const value = Math.abs(e.target.value);
+                      updateSubField(subIndex, "wid_field", value);
+                    }}
+                  />
+                </div>
+                <div className="input-group-register-field">
+                  <label>ความยาวของสนาม</label>
+                  <input
+                    type="number"
+                    placeholder="(เมตร)"
+                    value={sub.length_field}
+                    onChange={(e) => {
+                      const value = Math.abs(e.target.value);
+                      updateSubField(subIndex, "length_field", value);
+                    }}
+                  />
+                </div>
+                <div className="input-group-register-field">
+                  <label>พื้นสนาม</label>
+                  <input
+                    maxLength={20}
+                    type="text"
+                    placeholder="เช่น หญ้าเทียม,หญ้าจริง "
+                    value={sub.field_surface}
+                    onChange={(e) =>
+                      updateSubField(subIndex, "field_surface", e.target.value)
+                    }
+                  />
+                </div>
                 {/*ปุ่มเพิ่มกิจกรรมเพิ่มเติม (เฉพาะสนามนี้) */}
                 <button
                   className="addbtn-regisfield"
@@ -676,7 +771,6 @@ export default function RegisterFieldForm() {
                 >
                   เพิ่มกิจกรรมเพิ่มเติม
                 </button>
-
                 {/*ปุ่มลบสนามย่อย */}
                 <button
                   className="delbtn-regisfield"
@@ -685,7 +779,6 @@ export default function RegisterFieldForm() {
                 >
                   ลบสนามย่อย
                 </button>
-
                 {/* แสดงรายการกิจกรรมเพิ่มเติมที่อยู่ในสนามนี้ */}
                 <div className="addoncon">
                   {sub.addOns.map((addon, addOnIndex) => (
@@ -757,7 +850,9 @@ export default function RegisterFieldForm() {
           )}
 
           <div className="input-group-register-field">
-            <label htmlFor="documents">เอกสาร (เพิ่มได้สูงสุด 10 ไฟล์)</label>
+            <label htmlFor="documents">
+              เอกสาร หรือรูป (เพิ่มได้สูงสุด 10 ไฟล์)
+            </label>
             <input
               type="file"
               onChange={handleFileChange} // ใช้ฟังก์ชันที่กำหนดไว้
@@ -784,19 +879,18 @@ export default function RegisterFieldForm() {
             <input
               type="number"
               name="number_bank"
-              placeholder="เลขบัญชี 12 หลัก พร้อมเพย์ 10 หรือ 13 หลักเท่านั้น"
+              placeholder="เลขบัญชี 10 หลัก หรือ 13 หลัก พร้อมเพย์ 10 หรือ หลัก 13 หลักเท่านั้น"
               value={fieldData.number_bank}
               onChange={(e) => {
                 const value = e.target.value;
-                
-                  const isPromptPay = fieldData.account_type // ตรวจสอบประเภทบัญชีที่เลือก
+                const isPromptPay = fieldData.account_type === "พร้อมเพย์"; // ตรวจสอบประเภทบัญชีที่เลือก
 
                 // อนุญาตเฉพาะตัวเลข
                 if (/^\d*$/.test(value)) {
                   // ตรวจสอบจำนวนหลัก
                   if (
                     (isPromptPay && value.length <= 13) || // พร้อมเพย์ 10 หรือ 13 หลัก
-                    (!isPromptPay && value.length <= 13) // ธนาคาร 12 หลัก
+                    (!isPromptPay && value.length <= 12) // ธนาคาร 12 หลัก
                   ) {
                     setFieldData({ ...fieldData, number_bank: value });
                   }
@@ -808,11 +902,11 @@ export default function RegisterFieldForm() {
 
                 // ตรวจสอบความถูกต้องของเลขที่กรอก
                 if (
-                  (!isPromptPay && length !== 13 && length !== 10) || // 
+                  (!isPromptPay && length !== 10 && length !== 12) || // ถ้าเป็นบัญชีธนาคารต้อง 12 หลัก
                   (isPromptPay && length !== 10 && length !== 13) // ถ้าเป็นพร้อมเพย์ต้อง 10 หรือ 13 หลัก
                 ) {
                   setMessage(
-                    "เลขที่กรอกไม่ถูกต้อง ถ้าเป็นบัญชีธนาคารต้อง 12 หลัก ถ้าเป็นพร้อมเพย์ต้อง 10 หรือ 13 หลัก"
+                    "เลขที่กรอกไม่ถูกต้อง ถ้าเป็นบัญชีธนาคารต้อง 10 หรือ 13 หลัก ถ้าเป็นพร้อมเพย์ต้อง 10 หรือ 13 หลัก"
                   );
                   setMessageType("error");
                   setFieldData({ ...fieldData, number_bank: "" }); // เคลียร์ค่า
@@ -939,6 +1033,10 @@ export default function RegisterFieldForm() {
           </div>
           {!showNewFacilityInput ? (
             <button
+              style={{
+                cursor: startProcessLoad ? "not-allowed" : "pointer",
+              }}
+              disabled={startProcessLoad}
               className="addfac-regisfield"
               type="button"
               onClick={() => setShowNewFacilityInput(true)}
@@ -1003,13 +1101,16 @@ export default function RegisterFieldForm() {
             disabled={startProcessLoad}
             type="submit"
           >
-            ยืนยัน
+            {startProcessLoad ? (
+              <span className="dot-loading">
+                <span className="dot one">●</span>
+                <span className="dot two">●</span>
+                <span className="dot three">● </span>
+              </span>
+            ) : (
+              "บันทึก"
+            )}
           </button>
-          {startProcessLoad && (
-            <div className="loading-overlay">
-              <div className="loading-spinner"></div>
-            </div>
-          )}
         </form>
       </div>
     </>

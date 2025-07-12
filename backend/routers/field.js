@@ -27,7 +27,7 @@ const storage = new CloudinaryStorage({
         resourceType = "image"; // รูปภาพ - ดูได้ใน Cloudinary
         format = undefined; // ปล่อยให้ Cloudinary optimize
       } else if (file.mimetype === "application/pdf") {
-        resourceType = "raw"; // PDF - แปลงเป็น image เพื่อดู preview ได้
+        resourceType = "raw";
         format = "pdf"; // แปลง PDF page แรกเป็น JPG
       } else {
         resourceType = "raw"; // ไฟล์อื่นๆ เช่น doc, docx
@@ -48,6 +48,7 @@ const storage = new CloudinaryStorage({
     // เพิ่ม format เฉพาะเมื่อจำเป็น
     if (format) {
       config.format = format;
+      console.log(`กำหนด format เป็น: ${format}`);
     }
 
     // เพิ่มการ optimize สำหรับรูปภาพ
@@ -241,8 +242,18 @@ router.post(
       for (const sub of subFields) {
         const subFieldResult = await pool.query(
           `INSERT INTO sub_field (field_id, sub_field_name, price, sport_id, user_id,wid_field,length_field,players_per_team,field_surface) 
-         VALUES ($1, $2, $3, $4, $5,$6,$7,$8,$9) RETURNING sub_field_id`,
-          [field_id, sub.name, sub.price, sub.sport_id, user_id,sub.wide_field, sub.length_field, sub.players_per_team, sub.field_surface]
+         VALUES ($1, $2, $3, $4, $5, $6, $7 ,$8, $9) RETURNING sub_field_id`,
+          [
+            field_id,
+            sub.name,
+            sub.price,
+            sub.sport_id,
+            user_id,
+            sub.wid_field,
+            sub.length_field,
+            sub.players_per_team,
+            sub.field_surface,
+          ]
         );
         const sub_field_id = subFieldResult.rows[0].sub_field_id;
         // เพิ่ม add_on ที่เกี่ยวข้องกับ sub_field
@@ -270,14 +281,35 @@ router.post(
 
       // สมมุติว่าในตาราง users มีคอลัมน์ชื่อ user_email
       const userEmail = userData.rows[0].email; // << ใช้ค่านี้ส่งอีเมล
+      const userfirstName = userData.rows[0].first_name; // << ใช้ค่านี้ส่งอีเมล
 
       // ส่งอีเมล
       try {
         const resultEmail = await resend.emails.send({
           from: process.env.Sender_Email,
           to: userEmail, // ใช้ค่าที่ดึงมา
-          subject: "ลงทะเบียนสนาม",
-          text: "คุณได้ลงทะเบียนสนามเรียบร้อยแล้ว รอผู้ดูแลตรวจสอบ",
+          subject: "การลงทะเบียนสนาม",
+          html: `
+
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); text-align:center;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #03045e; margin-bottom: 16px; text-align: center">การลงทะเบียนสนาม</h1>
+
+  <p style="font-size: 16px; text-align: center; color: #9ca3af;">
+    <strong>คุณได้ลงทะเบียนสามเรียบร้อยแล้ว </br >กรุณารอผู้ดูแลระบบตรวจสอบ ขอบคุณที่ใช้บริการ</strong>
+  </p>
+  <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+  <p style="font-size: 12px; color: #9ca3af;text-align: center ">
+    หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+  </p>
+</div>`,
         });
         console.log("อีเมลส่งสำเร็จ:", resultEmail);
       } catch (error) {
@@ -294,7 +326,7 @@ router.post(
   }
 );
 
-router.put("/update-status/:field_id", authMiddleware, async (req, res) => {
+router.put("/appeal/:field_id", authMiddleware, async (req, res) => {
   try {
     const { field_id } = req.params; // รับ field_id จาก URL params
     const { status } = req.body; // รับ status ที่จะอัปเดตจาก body
@@ -375,6 +407,10 @@ router.get("/:field_id", authMiddleware, async (req, res) => {
             DISTINCT jsonb_build_object(
               'sub_field_id', s.sub_field_id,
               'sub_field_name', s.sub_field_name,
+              'players_per_team', s.players_per_team,
+              'wid_field', s.wid_field,
+              'length_field', s.length_field,
+              'field_surface', s.field_surface,
               'price', s.price,
               'sport_name', sp.sport_name,
               'add_ons', (
@@ -416,6 +452,10 @@ router.get("/:field_id", authMiddleware, async (req, res) => {
             DISTINCT jsonb_build_object(
               'sub_field_id', s.sub_field_id,
               'sub_field_name', s.sub_field_name,
+              'players_per_team', s.players_per_team,
+              'wid_field', s.wid_field,
+              'length_field', s.length_field,
+              'field_surface', s.field_surface,
               'price', s.price,
               'sport_name', sp.sport_name,
               'add_ons', (
@@ -454,11 +494,11 @@ router.get("/:field_id", authMiddleware, async (req, res) => {
   }
 });
 
-router.put("/:field_id", authMiddleware, async (req, res) => {
+router.put("/update-status/:field_id", authMiddleware, async (req, res) => {
   try {
     const { field_id } = req.params;
-    const { status } = req.body;
-    const { user_id, role } = req.user; // ดึงข้อมูลจาก token เพื่อเช็ค role ของผู้ใช้
+    const { status,reasoning } = req.body;
+    const { role } = req.user; // ดึงข้อมูลจาก token เพื่อเช็ค role ของผู้ใช้
 
     console.log("field_id ที่ได้รับ:", field_id);
     console.log("ข้อมูลที่ได้รับจาก Frontend:", req.body);
@@ -491,6 +531,7 @@ router.put("/:field_id", authMiddleware, async (req, res) => {
       "SELECT * FROM users WHERE user_id = $1",
       [checkField.rows[0].user_id]
     );
+    const userfirstName = userData.rows[0].first_name; // << ใช้ค่านี้ส่งอีเมล
 
     if (status === "ผ่านการอนุมัติ") {
       const userId = checkField.rows[0].user_id;
@@ -501,12 +542,35 @@ router.put("/:field_id", authMiddleware, async (req, res) => {
           [userId]
         );
       }
+      let reason = reasoning || [];
+      for(reasoning of reason){
+        reason[reason.id] = reason.value;
+      }
       try {
         const resultEmail = await resend.emails.send({
           from: process.env.Sender_Email,
           to: userData.rows[0].email,
           subject: "การอนุมัติสนามกีฬา",
-          text: "สนามกีฬาได้รับการอนุมัติเรียบร้อยแล้ว",
+          html: `
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); text-align:center;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #347433; margin-bottom: 16px; text-align: center">สนามกีฬาได้รับการอนุมัติ</h1>
+
+  <p style="font-size: 16px; text-align: center; color: #9ca3af;">
+    <strong> คุณ ${userfirstName} สนามกีฬาของคุณได้รับการอนุมัติเรียบร้อยแล้ว </br >ขอบคุณที่ใช้บริการ</strong>
+  </p>
+  <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+
+  <p style="font-size: 12px; color: #9ca3af;text-align: center ">
+    หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+  </p>
+</div>`,
         });
         console.log("อีเมลส่งสำเร็จ:", resultEmail);
       } catch (error) {
@@ -524,12 +588,44 @@ router.put("/:field_id", authMiddleware, async (req, res) => {
           [userId]
         );
       }
+
+      // แปลง reasoning เป็นข้อความ bullet
+      let reasonText = "";
+      if (Array.isArray(reasoning) && reasoning.length > 0) {
+        reasonText = `<ul style="text-align:left;">` +
+          reasoning.map(r => `<li>${r.value}</li>`).join("") +
+          `</ul>`;
+      } else {
+        reasonText = "<p>ไม่มีเหตุผลที่ระบุ</p>";
+      }
+
       try {
         const resultEmail = await resend.emails.send({
           from: process.env.Sender_Email,
           to: userData.rows[0].email,
           subject: "การอนุมัติสนามกีฬา",
-          text: "สนามกีฬาไม่ได้รับการอนุมัติ",
+          html: `
+<div style="font-family: 'Kanit', sans-serif; max-width: 600px; margin: 10px auto; padding: 20px; background-color: #ffffff; border-radius: 8px; border: 1px solid #e5e7eb; margin-top:80px;box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2); text-align:center;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr>
+      <td align="center">
+        <img src="https://res.cloudinary.com/dlwfuul9o/image/upload/v1750926689/logo2small_lzsrwa.png" alt="Sport-Hub Online Logo" style="display: block; max-width: 300px; margin-bottom: 10px;" />
+      </td>
+    </tr>
+  </table>
+  <h1 style="color: #DC2525; margin-bottom: 16px; text-align: center">สนามกีฬาไม่ได้รับการอนุมัติ</h1>
+  <p style="font-size: 16px; text-align: center; color: #9ca3af;">
+    <strong> คุณ ${userfirstName} สนามกีฬาของคุณไม่ได้รับการอนุมัติ </br >กรุณาตรวจสอบสนามกีฬาของคุณและส่งคำขอลงทะเบียนใหม่</strong>
+  </p>
+  <div style="margin: 16px 0; text-align:left;">
+    <strong>เหตุผลที่ไม่ผ่านการอนุมัติ:</strong>
+    ${reasonText}
+  </div>
+  <hr style="margin: 24px 0; border: none; border-top: 1px solid #e5e7eb;" />
+  <p style="font-size: 12px; color: #9ca3af;text-align: center ">
+    หากคุณไม่ได้เป็นผู้ดำเนินการ กรุณาเพิกเฉยต่ออีเมลฉบับนี้
+  </p>
+</div>`,
         });
         console.log("อีเมลส่งสำเร็จ:", resultEmail);
       } catch (error) {
@@ -560,8 +656,6 @@ router.put("/:field_id", authMiddleware, async (req, res) => {
     });
   }
 });
-
-
 
 // DELETE ลบสนามหลัก พร้อมลบ sub_field, add_on, โพส, รูป, เอกสาร
 router.delete("/delete/field/:id", authMiddleware, async (req, res) => {
@@ -652,7 +746,7 @@ router.delete("/delete/field/:id", authMiddleware, async (req, res) => {
             }
           }
 
-          console.log("📋 เอกสารที่จะลบ:", docPaths);
+          console.log("เอกสารที่จะลบ:", docPaths);
           await deleteMultipleCloudinaryFiles(docPaths);
         } catch (parseError) {
           console.error("แยกเอกสารไม่สำเร็จ:", parseError);
@@ -898,6 +992,7 @@ router.post(
       );
 
       res.json({ message: "อัปโหลดเอกสารสำเร็จ", paths: filePaths });
+      console.log("filepayh", filePaths);
     } catch (error) {
       console.error("Upload document error:", error);
       res
@@ -909,7 +1004,16 @@ router.post(
 
 router.post("/subfield/:field_id", authMiddleware, async (req, res) => {
   const { field_id } = req.params;
-  const { sub_field_name, price, sport_id, user_id } = req.body;
+  const {
+    sub_field_name,
+    price,
+    sport_id,
+    players_per_team,
+    wid_field,
+    length_field,
+    field_surface,
+    user_id,
+  } = req.body;
 
   if (!sport_id || isNaN(sport_id)) {
     return res.status(400).json({ error: "กรุณาเลือกประเภทกีฬาก่อนเพิ่มสนาม" });
@@ -917,8 +1021,18 @@ router.post("/subfield/:field_id", authMiddleware, async (req, res) => {
 
   try {
     const result = await pool.query(
-      `INSERT INTO sub_field (field_id, sub_field_name, price, sport_id, user_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [field_id, sub_field_name, price, sport_id, user_id]
+      `INSERT INTO sub_field (field_id, sub_field_name, price, sport_id, players_per_team ,wid_field ,length_field, field_surface, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+      [
+        field_id,
+        sub_field_name,
+        price,
+        sport_id,
+        players_per_team,
+        wid_field,
+        length_field,
+        field_surface,
+        user_id,
+      ]
     );
 
     res.json(result.rows[0]);
@@ -979,14 +1093,31 @@ router.delete("/delete/addon/:id", authMiddleware, async (req, res) => {
 
 router.put("/supfiled/:sub_field_id", authMiddleware, async (req, res) => {
   const { sub_field_id } = req.params;
-  const { sub_field_name, price, sport_id } = req.body;
+  const {
+    sub_field_name,
+    price,
+    sport_id,
+    players_per_team,
+    wid_field,
+    length_field,
+    field_surface,
+  } = req.body;
 
   try {
     if (!sub_field_id) return res.status(400).json({ error: "sub_field_id" });
 
     await pool.query(
-      `UPDATE sub_field SET sub_field_name = $1, price = $2, sport_id = $3 WHERE sub_field_id = $4`,
-      [sub_field_name, price, sport_id, sub_field_id]
+      `UPDATE sub_field SET sub_field_name = $1, price = $2, sport_id = $3 , players_per_team = $4, wid_field = $5, length_field = $6, field_surface = $7 WHERE sub_field_id = $8`,
+      [
+        sub_field_name,
+        price,
+        sport_id,
+        players_per_team,
+        wid_field,
+        length_field,
+        field_surface,
+        sub_field_id,
+      ]
     );
     res.json({ message: "สำเร็จ" });
   } catch (error) {
@@ -1120,6 +1251,10 @@ router.get("/open-days/:sub_field_id", authMiddleware, async (req, res) => {
             DISTINCT jsonb_build_object(
               'sub_field_id', s.sub_field_id,
               'sub_field_name', s.sub_field_name,
+              'players_per_team', s.players_per_team,
+              'wid_field', s.wid_field,
+              'length_field', s.length_field,
+              'field_surface', s.field_surface,
               'price', s.price,
               'sport_name', sp.sport_name,
               'add_ons', (
@@ -1152,7 +1287,7 @@ router.get("/open-days/:sub_field_id", authMiddleware, async (req, res) => {
   }
 });
 
-router.get("/field-data/:sub_field_id", async (req, res) => {
+router.get("/field-data/:sub_field_id", authMiddleware, async (req, res) => {
   const { sub_field_id } = req.params;
   if (isNaN(sub_field_id)) {
     return res.status(404).json({ error: "Invalid subfield ID" });
@@ -1180,6 +1315,10 @@ router.get("/field-data/:sub_field_id", async (req, res) => {
         DISTINCT jsonb_build_object(
           'sub_field_id', s.sub_field_id,
           'sub_field_name', s.sub_field_name,
+          'players_per_team', s.players_per_team,
+          'wid_field', s.wid_field,
+          'length_field', s.length_field,
+          'field_surface', s.field_surface,
           'price', s.price,
           'sport_name', sp.sport_name,
           'add_ons', (

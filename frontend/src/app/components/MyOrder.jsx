@@ -41,6 +41,8 @@ export default function Myorder() {
   const fetchData = useCallback(async () => {
     if (!fieldId) return;
     try {
+      const token = localStorage.getItem("auth_mobile_token");
+
       const queryParams = new URLSearchParams();
       if (filters.bookingDate)
         queryParams.append("bookingDate", filters.bookingDate);
@@ -50,7 +52,12 @@ export default function Myorder() {
 
       const res = await fetch(
         `${API_URL}/booking/my-orders/${fieldId}?${queryParams.toString()}`,
-        { credentials: "include" }
+        {
+          credentials: "include",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        }
       );
 
       const data = await res.json();

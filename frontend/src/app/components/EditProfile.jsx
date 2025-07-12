@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import "@/app/css/editProfile.css";
 import { useAuth } from "@/app/contexts/AuthContext";
 import Link from "next/link";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function EditProfile() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -19,6 +20,7 @@ export default function EditProfile() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
+  usePreventLeave(startProcessLoad);
 
   useEffect(() => {
     if (isLoading) return;
@@ -84,10 +86,13 @@ export default function EditProfile() {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 200));
+      const token = localStorage.getItem("auth_mobile_token");
+
       const response = await fetch(`${API_URL}/users/${currentUser.user_id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         credentials: "include",
         body: JSON.stringify(updatedUser),
@@ -144,6 +149,15 @@ export default function EditProfile() {
       <div className="edit-profile-container">
         <h2 className="head-edit-profile">แก้ไขโปรไฟล์</h2>
         <form onSubmit={handleUpdateProfile} className="editprofile-form">
+          <label className="edit-profile-title">อีเมล:</label>
+          <input
+            type="email"
+            readOnly
+            value={updatedUser.email}
+            onChange={(e) =>
+              setUpdatedUser({ ...updatedUser, email: e.target.value })
+            }
+          />
           <label className="edit-profile-title">ชื่อ:</label>
           <input
             type="text"
@@ -162,14 +176,6 @@ export default function EditProfile() {
               setUpdatedUser({ ...updatedUser, last_name: e.target.value })
             }
           />
-          {/* <label className="edit-profile-title">อีเมล:</label>
-          <input
-            type="email"
-            value={updatedUser.email}
-            onChange={(e) =>
-              setUpdatedUser({ ...updatedUser, email: e.target.value })
-            }
-          /> */}
 
           <button
             type="submit"
@@ -179,17 +185,20 @@ export default function EditProfile() {
             }}
             disabled={startProcessLoad}
           >
-            บันทึก
+            {startProcessLoad ? (
+              <span className="dot-loading">
+                <span className="dot one">●</span>
+                <span className="dot two">●</span>
+                <span className="dot three">●</span>
+              </span>
+            ) : (
+              "บันทึก"
+            )}
           </button>
           <label className="edit-profile-title">เปลี่ยนรหัสผ่าน</label>
           <Link href="/change-password" className="change-password-link">
             เปลี่ยนรหัสผ่าน
           </Link>
-          {startProcessLoad && (
-            <div className="loading-overlay">
-              <div className="loading-spinner"></div>
-            </div>
-          )}
         </form>
       </div>
     </>

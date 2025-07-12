@@ -11,9 +11,11 @@ export function AuthProvider({ children }) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
   useEffect(() => {
-    const token = localStorage.getItem("auth_token"); // เอาไว้สำหรับ mobile
+    const isMobile = /Mobile|Android|iPhone|iPad/i.test(navigator.userAgent);
+    const token = isMobile ? localStorage.getItem("auth_mobile_token") : null;
     const fetchUser = async () => {
       try {
+        setIsLoading(true);
         const res = await fetch(`${API_URL}/users/me`, {
           credentials: "include",
           headers: {
@@ -24,8 +26,6 @@ export function AuthProvider({ children }) {
         if (res.ok) {
           const data = await res.json();
           setUser(data);
-        } else {
-          setUser(null);
         }
       } catch (error) {
         console.error("Error fetching user", error);

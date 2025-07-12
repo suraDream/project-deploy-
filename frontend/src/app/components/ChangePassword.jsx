@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import "@/app/css/changePassword.css";
 import { useAuth } from "@/app/contexts/AuthContext";
+import { usePreventLeave } from "@/app/hooks/usePreventLeave";
 
 export default function ChangePassword() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -14,6 +15,7 @@ export default function ChangePassword() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const [startProcessLoad, SetstartProcessLoad] = useState(false);
+  usePreventLeave(startProcessLoad); 
 
   useEffect(() => {
     if (isLoading) return;
@@ -69,6 +71,8 @@ export default function ChangePassword() {
     }
     SetstartProcessLoad(true);
     try {
+      const token = localStorage.getItem("auth_mobile_token");
+
       await new Promise((resolve) => setTimeout(resolve, 200));
       // ส่ง request ไปตรวจสอบรหัสเดิม
       const response = await fetch(
@@ -77,6 +81,7 @@ export default function ChangePassword() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
           },
           credentials: "include",
           body: JSON.stringify({ currentPassword }),
@@ -86,6 +91,8 @@ export default function ChangePassword() {
       const data = await response.json();
 
       if (data.success) {
+        const token = localStorage.getItem("auth_mobile_token");
+
         // ถ้ารหัสเดิมถูกต้อง อัปเดตรหัสผ่านใหม่
         const updateResponse = await fetch(
           `${API_URL}/users/${user.user_id}/change-password`,
@@ -93,6 +100,7 @@ export default function ChangePassword() {
             method: "PUT",
             headers: {
               "Content-Type": "application/json",
+              ...(token ? { Authorization: `Bearer ${token}` } : {}),
             },
             credentials: "include",
             body: JSON.stringify({
@@ -198,13 +206,16 @@ export default function ChangePassword() {
             }}
             disabled={startProcessLoad}
           >
-            บันทึก
+            {startProcessLoad ? (
+              <span className="dot-loading">
+                <span className="dot one">●</span>
+                <span className="dot two">●</span>
+                <span className="dot three">●</span>
+              </span>
+            ) : (
+              "บันทึก"
+            )}
           </button>
-          {startProcessLoad && (
-            <div className="loading-overlay">
-              <div className="loading-spinner"></div>
-            </div>
-          )}
         </form>
       </div>
     </div>

@@ -148,9 +148,9 @@ export default function HomePage() {
 
       <div className="homepage">
         <div className="news-section">
-          <div className="title-notice">
-            <h1>ประกาศ</h1>
-          </div>
+          {/* <div className="title-notice">
+            <h1>โพสต์</h1>
+          </div> */}
           {dataLoading && (
             <div className="loading-data">
               <div className="loading-data-spinner"></div>
@@ -195,7 +195,7 @@ export default function HomePage() {
                     {post.images.map((_, dotIdx) => (
                       <span
                         key={dotIdx}
-                        className={`dot ${
+                        className={`dot-home ${
                           (imageIndexes[post.post_id] || 0) === dotIdx
                             ? "active-home"
                             : ""
