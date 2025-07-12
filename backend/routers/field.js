@@ -589,11 +589,11 @@ router.put("/update-status/:field_id", authMiddleware, async (req, res) => {
         );
       }
 
-      // แปลง reasoning เป็นข้อความ bullet
+
       let reasonText = "";
       if (Array.isArray(reasoning) && reasoning.length > 0) {
         reasonText = `<ul style="text-align:left;">` +
-          reasoning.map(r => `<li>${r.value}</li>`).join("") +
+          reasoning.map(r => `<li>${r.value} ${r.detail}</li>`).join("") +
           `</ul>`;
       } else {
         reasonText = "<p>ไม่มีเหตุผลที่ระบุ</p>";

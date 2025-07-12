@@ -21,10 +21,10 @@ export default function CheckFieldDetail() {
   const [reasoning, setReasoning] = useState([]);
   usePreventLeave(startProcessLoad);
 const REASON_OPTIONS = [
-  { id:1,value: "ได้" },
-  { id:2,value: "2",  },
-  { id:3,value: "3",},
-  { id:4,value: "4" },
+  { id:1,value: "ได้",detail:null },
+  { id:2,value: "2",detail:null  },
+  { id:3,value: "3",detail:null},
+  { id:4,value: "4",detail:null },
 ];
 
   useEffect(() => {
@@ -222,9 +222,29 @@ const REASON_OPTIONS = [
           }}
         />
         <span style={{ marginLeft: "8px" }}>{option.value}</span>
+        {reasoning.some((r) => r.id === option.id) && (
+          <input
+            type="text"
+            placeholder="รายละเอียดเพิ่มเติม"
+            value={reasoning.find((r) => r.id === option.id)?.detail || ""}
+            onChange={(e) => {
+              const newDetail = e.target.value;
+              setReasoning(reasoning.map((r) =>
+                r.id === option.id ? { ...r, detail: newDetail } : r
+              ));
+            }}
+            style={{ marginLeft: "8px", width: "100%" }}
+          />
+        )}
       </div>
-    ))}
+     
+
+      
+    ))
+    
+    }
   </div>
+  
 )}
         </div>
         
