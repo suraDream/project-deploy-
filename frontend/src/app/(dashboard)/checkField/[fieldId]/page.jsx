@@ -21,27 +21,35 @@ export default function CheckFieldDetail() {
   const [reasoning, setReasoning] = useState([]);
   usePreventLeave(startProcessLoad);
 const REASON_OPTIONS = [
-  { id:1,value: "ได้",detail:null },
-  { id:2,value: "2",detail:null  },
-  { id:3,value: "3",detail:null},
-  { id:4,value: "4",detail:null },
+  { id:1,value: "ได้" },
+  { id:2,value: "2"  },
+  { id:3,value: "3"},
+  { id:4,value: "4" },
 ];
 
   useEffect(() => {
     if (isLoading) return;
 
     if (!user) {
+      console.log("User not authenticated, redirecting to login");
       router.push("/login");
     }
 
     if (user?.status !== "ตรวจสอบแล้ว") {
+      console.log("User not verified, redirecting to verification");
       router.push("/verification");
     }
 
     if (user?.role !== "admin" && user?.role !== "field_owner") {
+      console.log("User does not have permission, redirecting to home");
       router.push("/");
     }
   }, [user, isLoading, , router]);
+  
+  console.log("User:", user);
+
+  console.log("FieldID:", fieldId);
+ 
 
   useEffect(() => {
     const fetchFieldData = async () => {
@@ -64,7 +72,8 @@ const REASON_OPTIONS = [
         if (data.error) {
           setMessage("ไม่พบข้อมูลสนามกีฬา", data.error);
           setMessageType("error");
-          router.push("/");
+          console.error("Error fetching field data:", data.error);
+          //router.push("/");
         } else {
           console.log("ข้อมูลสนามกีฬา:", data);
           setFieldData(data);
@@ -169,6 +178,15 @@ const REASON_OPTIONS = [
   };
   const formatPrice = (value) => new Intl.NumberFormat("th-TH").format(value);
 
+const handleResoningChange = (id, detail) => {
+  setReasoning((prev) =>
+    prev.map((r) =>
+      r.id === id ? { ...r, detail } : r
+    )
+  );
+};
+
+
   const StatusChangeModal = ({ newStatus, onConfirm, onClose }) => (
     <div className="confirm-modal-check-field">
       <div className="modal-content-check-field">
@@ -215,31 +233,28 @@ const REASON_OPTIONS = [
           checked={reasoning.some((r) => r.id === option.id)}
           onChange={(e) => {
             if (e.target.checked) {
-              setReasoning([...reasoning, { id: option.id, value: option.value }]);
+              // ถ้ายังไม่มี ให้เพิ่ม
+              if (!reasoning.some((r) => r.id === option.id)) {
+                setReasoning([...reasoning, { id: option.id, value: option.value, detail: "" }]);
+              }
             } else {
+              // ถ้าเอาออก ให้ filter ทิ้ง
               setReasoning(reasoning.filter((r) => r.id !== option.id));
             }
           }}
         />
         <span style={{ marginLeft: "8px" }}>{option.value}</span>
+        {/* ช่องรายละเอียดเพิ่มเติม */}
         {reasoning.some((r) => r.id === option.id) && (
           <input
             type="text"
             placeholder="รายละเอียดเพิ่มเติม"
             value={reasoning.find((r) => r.id === option.id)?.detail || ""}
-            onChange={(e) => {
-              const newDetail = e.target.value;
-              setReasoning(reasoning.map((r) =>
-                r.id === option.id ? { ...r, detail: newDetail } : r
-              ));
-            }}
+            onChange={(e) => handleResoningChange(option.id, e.target.value)}
             style={{ marginLeft: "8px", width: "100%" }}
           />
         )}
       </div>
-     
-
-      
     ))
     
     }

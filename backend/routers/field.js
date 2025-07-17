@@ -391,8 +391,19 @@ router.put("/appeal/:field_id", authMiddleware, async (req, res) => {
 router.get("/:field_id", authMiddleware, async (req, res) => {
   try {
     const { field_id } = req.params;
-    const { user_id, role } = req.user; // ดึง user_id และ role จาก token
+    const { user_id} = req.user; // ดึง user_id และ role จาก token
+    console.log("Backend => field_id:", field_id);
+  console.log("Backend => user_id from token:", user_id);
+  
 
+  const userRole = await pool.query(
+      "SELECT role FROM users WHERE user_id = $1",
+      [user_id]
+    );
+    role = userRole.rows[0].role;
+   
+
+  console.log("Backend => role:", role);
     // ตรวจสอบว่าเป็น admin หรือไม่
     if (role === "admin") {
       // Admin สามารถเข้าถึงข้อมูลทุกฟิลด์
@@ -542,10 +553,8 @@ router.put("/update-status/:field_id", authMiddleware, async (req, res) => {
           [userId]
         );
       }
-      let reason = reasoning || [];
-      for(reasoning of reason){
-        reason[reason.id] = reason.value;
-      }
+    
+    
       try {
         const resultEmail = await resend.emails.send({
           from: process.env.Sender_Email,
@@ -644,6 +653,16 @@ router.put("/update-status/:field_id", authMiddleware, async (req, res) => {
        RETURNING *;`,
       [status, field_id]
     );
+    const updateRole = await pool.query('SELECT role FROM users WHERE user_id = $1', [checkField.rows[0].user_id]);
+   if(req.io){
+      req.io.emit("updated_status", {
+        userId: checkField.rows[0].user_id,
+        //role: updateRole.rows[0].role,
+      });
+      console.log("ส่งข้อมูลไปยังผู้ใช้ที่เกี่ยวข้อง:", checkField.rows[0].user_id);
+    } else {
+      console.log("ไม่พบ req.io เพื่อส่งข้อมูลไปยังผู้ใช้");  
+   }
 
     console.log("ข้อมูลอัปเดตสำเร็จ:", result.rows[0]);
 

@@ -80,7 +80,7 @@ export default function Booking() {
     }
   }, [user, isLoading, router, bookingDate]);
 
-  // ดึง slot ที่มีสถานะ
+ 
   const fetchBookedSlots = useCallback(async () => {
     try {
       const token = localStorage.getItem("auth_mobile_token");

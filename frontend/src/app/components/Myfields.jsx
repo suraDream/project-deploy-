@@ -36,9 +36,12 @@ export default function MyFieldPage() {
     }
 
     if (user?.role !== "admin" && user?.role !== "field_owner") {
+      
       router.replace("/");
     }
   }, [user, isLoading, , router]);
+  
+  console.log("User role:", user?.role);
 
   useEffect(() => {
     const fetchMyFields = async () => {
